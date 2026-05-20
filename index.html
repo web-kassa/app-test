@@ -1278,6 +1278,7 @@
 
             parsedInvoiceData = []; 
             invoiceGroups = {}; 
+            let processingLogs = []; // Хранилище отчетов по каждому файлу
 
             const markers = (invoiceSynonyms['supplier_keywords'] || ["the seller", "vendor", "supplier", "поставщик"]);
             const excludes = (invoiceSynonyms['exclude'] || ["commercial invoice", "packing list", "invoice", "specification"]);
@@ -1289,7 +1290,12 @@
                 return synonymsList.some(syn => syn !== "" && cleanCell.includes(syn));
             }
 
+            // Перебираем каждый загруженный файл
             for (let file of fileInput.files) {
+                let fileErrors = [];
+                let itemsInFile = 0;
+                let foundHeaderInFile = false;
+
                 // Читаем оригинал файла в Base64 для отправки на сервер
                 const b64Promise = new Promise((resolve) => {
                     const reader = new FileReader();
@@ -1305,29 +1311,25 @@
                 });
 
                 const arrayBuffer = await dataPromise;
+                let file_doc_no = 'UNKNOWN';
+                let file_supplier = 'UNKNOWN';
+
                 try {
                     const workbook = XLSX.read(arrayBuffer, {type: 'array'});
                     
-                    let file_doc_no = 'UNKNOWN';
-                    let file_supplier = 'UNKNOWN';
-
                     workbook.SheetNames.forEach((sheetName) => {
                         const worksheet = workbook.Sheets[sheetName];
                         const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
                         if (!rows || rows.length === 0) return;
 
-                        // 1. Ищем поставщика
                         if (file_supplier === 'UNKNOWN') {
                             let foundSupplier = false;
-                            
-                            // ЭТАП А: Сначала ищем по четким маркерам (The Seller) во всех верхних строках
                             for (let i = 0; i < Math.min(10, rows.length); i++) {
                                 let row = rows[i];
                                 if (!row) continue;
                                 for (let j = 0; j < row.length; j++) {
                                     let cellVal = String(row[j] || "").toLowerCase();
                                     if (markers.some(m => cellVal.includes(m.toLowerCase()))) {
-                                        // Нашли маркер! Ищем ближайшую непустую ячейку справа от него
                                         for (let k = j + 1; k < row.length; k++) {
                                             if (row[k] && String(row[k]).trim() !== '') {
                                                 file_supplier = String(row[k]).trim().replace(/^"|"$/g, ''); 
@@ -1340,8 +1342,6 @@
                                 }
                                 if (foundSupplier) break;
                             }
-
-                            // ЭТАП Б: Если маркеров нет вообще, берем первую чистую строку (Fallback)
                             if (!foundSupplier) {
                                 for (let i = 0; i < Math.min(8, rows.length); i++) {
                                     let row = rows[i];
@@ -1379,6 +1379,7 @@
                             if (cIdx !== -1 && qIdx !== -1 && pIdx !== -1) {
                                 headerRowIdx = i;
                                 colMap = { code: cIdx, brand: bIdx, desc: dIdx, qty: qIdx, price: pIdx };
+                                foundHeaderInFile = true;
                                 break;
                             }
                         }
@@ -1416,12 +1417,12 @@
                                     };
                                     parsedInvoiceData.push(itemData);
                                     invoiceGroups[file_doc_no].items.push(itemData);
+                                    itemsInFile++;
                                 }
                             }
                         }
                     });
                     
-                    // Сохраняем ОРИГИНАЛЬНЫЙ файл в группу (избегая дублирования)
                     if (invoiceGroups[file_doc_no]) {
                         const alreadyAdded = invoiceGroups[file_doc_no].originalFiles.some(f => f.fileName === file.name);
                         if (!alreadyAdded) {
@@ -1434,21 +1435,38 @@
 
                 } catch (err) {
                     console.error("Ошибка чтения файла: " + file.name, err);
+                    fileErrors.push("Файл поврежден или не является таблицей");
+                }
+
+                // АНАЛИЗ ОШИБОК ДЛЯ ЛОГА
+                if (file_doc_no === 'UNKNOWN') fileErrors.push("нет номера инвойса");
+                if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
+                if (!foundHeaderInFile) fileErrors.push("нет колонок (Код/Кол-во/Цена)");
+                else if (itemsInFile === 0) fileErrors.push("в таблице нет товаров с ценой");
+
+                // ФОРМИРОВАНИЕ ОТЧЕТА ПО ФАЙЛУ
+                if (fileErrors.length > 0) {
+                    processingLogs.push(`<div style="color:#e74c3c; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #e74c3c; background:#1a1a1a;">⚠️ <b>${file.name}</b>: ${fileErrors.join(', ')}</div>`);
+                } else {
+                    processingLogs.push(`<div style="color:#2ecc71; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #2ecc71; background:#1a1a1a;">✅ <b>${file.name}</b>: Распознано ${itemsInFile} поз.</div>`);
                 }
             }
 
+            // ВЫВОД РЕЗУЛЬТАТОВ НА ЭКРАН
+            const debugContainer = document.getElementById('debug-container');
+            debugContainer.innerHTML = processingLogs.join('');
+            debugContainer.style.display = 'flex';
+
             if (parsedInvoiceData.length === 0) {
-                document.getElementById('debug-container').innerHTML = `<div style="color:#e74c3c; font-weight:bold;">❌ Ни в одном из файлов не найдены таблицы товаров с ценами!</div>`;
-                document.getElementById('debug-container').style.display = 'flex';
                 document.getElementById('invoicePreviewArea').style.display = 'none';
-                return;
+                return; // Останавливаемся, так как ни один файл не дал полезных данных
             }
 
             const uniqueDocs = Object.keys(invoiceGroups);
             const uniqueSuppliers = [...new Set(parsedInvoiceData.map(i => i.supplier))];
 
             let docUiHtml = '';
-            if (uniqueDocs.length === 1) {
+            if (uniqueDocs.length === 1 && uniqueDocs[0] !== 'UNKNOWN') {
                 docUiHtml = `<input type="text" id="ui-doc-no" value="${uniqueDocs[0]}" style="background:#222; color:#f1c40f; border:1px dashed #555; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:13px; width: 140px; outline:none;" title="Можно редактировать">`;
             } else {
                 docUiHtml = `<span style="color:#f1c40f; font-weight:bold;">${uniqueDocs.join(', ')}</span>`;
