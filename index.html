@@ -1295,6 +1295,7 @@
                 let fileErrors = [];
                 let itemsInFile = 0;
                 let foundHeaderInFile = false;
+                let foundCols = { id: false, qty: false, price: false }; // ДОБАВЛЕНО: трекер найденных колонок
 
                 // Читаем оригинал файла в Base64 для отправки на сервер
                 const b64Promise = new Promise((resolve) => {
@@ -1376,6 +1377,11 @@
                             let bIdx = row.findIndex(c => isSynonym(c, 'brand'));
                             let dIdx = row.findIndex(c => isSynonym(c, 'name'));
 
+                            // Запоминаем, какие колонки вообще мелькали в документе
+                            if (cIdx !== -1) foundCols.id = true;
+                            if (qIdx !== -1) foundCols.qty = true;
+                            if (pIdx !== -1) foundCols.price = true;
+
                             if (cIdx !== -1 && qIdx !== -1 && pIdx !== -1) {
                                 headerRowIdx = i;
                                 colMap = { code: cIdx, brand: bIdx, desc: dIdx, qty: qIdx, price: pIdx };
@@ -1436,6 +1442,21 @@
                 } catch (err) {
                     console.error("Ошибка чтения файла: " + file.name, err);
                     fileErrors.push("Файл поврежден или не является таблицей");
+                }
+
+                // АНАЛИЗ ОШИБОК ДЛЯ ЛОГА
+                if (file_doc_no === 'UNKNOWN') fileErrors.push("нет номера инвойса");
+                if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
+                
+                // УМНЫЙ ВЫВОД НЕДОСТАЮЩИХ КОЛОНОК
+                if (!foundHeaderInFile) {
+                    let missing = [];
+                    if (!foundCols.id) missing.push("«Код/Артикул»");
+                    if (!foundCols.qty) missing.push("«Кол-во»");
+                    if (!foundCols.price) missing.push("«Цена»");
+                    fileErrors.push(`не найдены колонки: ${missing.join(', ')}`);
+                } else if (itemsInFile === 0) {
+                    fileErrors.push("в таблице нет товаров с ценой");
                 }
 
                 // АНАЛИЗ ОШИБОК ДЛЯ ЛОГА
