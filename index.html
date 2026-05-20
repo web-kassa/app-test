@@ -1295,8 +1295,8 @@
                 let itemsInFile = 0;
                 let foundHeaderInFile = false;
                 
-                // Глобальный трекер найденных колонок для этого файла
-                let foundCols = { id: false, qty: false, price: false };
+                let bestMatchCount = -1;
+                let missingInBestMatch = ["«Код»", "«Кол-во»", "«Цена»"];
 
                 const b64Promise = new Promise((resolve) => {
                     const reader = new FileReader();
@@ -1377,10 +1377,16 @@
                             let bIdx = row.findIndex(c => isSynonym(c, 'brand'));
                             let dIdx = row.findIndex(c => isSynonym(c, 'name'));
 
-                            // Отмечаем, какие колонки мы вообще увидели в файле
-                            if (cIdx !== -1) foundCols.id = true;
-                            if (qIdx !== -1) foundCols.qty = true;
-                            if (pIdx !== -1) foundCols.price = true;
+                            let currentMatches = 0;
+                            let currentMissing = [];
+                            if (cIdx !== -1) currentMatches++; else currentMissing.push("«Код»");
+                            if (qIdx !== -1) currentMatches++; else currentMissing.push("«Кол-во»");
+                            if (pIdx !== -1) currentMatches++; else currentMissing.push("«Цена»");
+
+                            if (currentMatches > bestMatchCount) {
+                                bestMatchCount = currentMatches;
+                                missingInBestMatch = currentMissing;
+                            }
 
                             if (cIdx !== -1 && qIdx !== -1 && pIdx !== -1) {
                                 headerRowIdx = i;
@@ -1444,29 +1450,19 @@
                     fileErrors.push("Файл поврежден или не является таблицей");
                 }
 
-                // АНАЛИЗ ОШИБОК ДЛЯ ЛОГА
                 if (file_doc_no === 'UNKNOWN') fileErrors.push("нет номера инвойса");
                 if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
                 
-                // Умный вывод ошибок: считаем, чего конкретно не хватает
                 if (!foundHeaderInFile) {
-                    let missing = [];
-                    if (!foundCols.id) missing.push("«Код»");
-                    if (!foundCols.qty) missing.push("«Кол-во»");
-                    if (!foundCols.price) missing.push("«Цена»");
-
-                    if (missing.length === 3) {
-                        fileErrors.push("таблица не распознана (нет ни одной из колонок Код/Кол-во/Цена)");
-                    } else if (missing.length > 0) {
-                        fileErrors.push(`отсутствуют колонки: ${missing.join(', ')}`);
+                    if (bestMatchCount === 0) {
+                        fileErrors.push("не найдена таблица (нет колонок Код, Кол-во, Цена)");
                     } else {
-                        fileErrors.push("Код, Цена и Кол-во раскиданы по разным строкам (должны быть в одной шапке)");
+                        fileErrors.push(`не найдено: ${missingInBestMatch.join(', ')}`);
                     }
                 } else if (itemsInFile === 0) {
                     fileErrors.push("в таблице нет товаров с ценой");
                 }
 
-                // ФОРМИРОВАНИЕ ОТЧЕТА ПО ФАЙЛУ
                 if (fileErrors.length > 0) {
                     processingLogs.push(`<div style="color:#e74c3c; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #e74c3c; background:#1a1a1a;">⚠️ <b>${file.name}</b>: ${fileErrors.join(' | ')}</div>`);
                 } else {
@@ -1474,7 +1470,6 @@
                 }
             }
 
-            // ВЫВОД РЕЗУЛЬТАТОВ НА ЭКРАН
             const debugContainer = document.getElementById('debug-container');
             debugContainer.style.maxHeight = 'none'; 
             debugContainer.style.overflowY = 'visible';
