@@ -1278,7 +1278,7 @@
 
             parsedInvoiceData = []; 
             invoiceGroups = {}; 
-            let processingLogs = []; // Отчеты по каждому файлу
+            let processingLogs = []; 
 
             const markers = (invoiceSynonyms['supplier_keywords'] || ["the seller", "vendor", "supplier", "поставщик"]);
             const excludes = (invoiceSynonyms['exclude'] || ["commercial invoice", "packing list", "invoice", "specification"]);
@@ -1290,15 +1290,13 @@
                 return synonymsList.some(syn => syn !== "" && cleanCell.includes(syn));
             }
 
-            // Перебираем каждый загруженный файл
             for (let file of fileInput.files) {
                 let fileErrors = [];
                 let itemsInFile = 0;
                 let foundHeaderInFile = false;
                 
-                // Переменные для умного поиска недостающих колонок
-                let bestMatchCount = 0;
-                let bestMissingCols = ["«Код/Артикул»", "«Кол-во»", "«Цена»"];
+                // Глобальный трекер найденных колонок для этого файла
+                let foundCols = { id: false, qty: false, price: false };
 
                 const b64Promise = new Promise((resolve) => {
                     const reader = new FileReader();
@@ -1379,18 +1377,10 @@
                             let bIdx = row.findIndex(c => isSynonym(c, 'brand'));
                             let dIdx = row.findIndex(c => isSynonym(c, 'name'));
 
-                            // Умная оценка строки: считаем, сколько колонок совпало
-                            let matches = 0;
-                            let currentMissing = [];
-                            if (cIdx !== -1) matches++; else currentMissing.push("«Код/Артикул»");
-                            if (qIdx !== -1) matches++; else currentMissing.push("«Кол-во»");
-                            if (pIdx !== -1) matches++; else currentMissing.push("«Цена»");
-
-                            // Если это самая похожая на шапку строка, запоминаем, чего в ней не хватает
-                            if (matches > bestMatchCount) {
-                                bestMatchCount = matches;
-                                bestMissingCols = currentMissing;
-                            }
+                            // Отмечаем, какие колонки мы вообще увидели в файле
+                            if (cIdx !== -1) foundCols.id = true;
+                            if (qIdx !== -1) foundCols.qty = true;
+                            if (pIdx !== -1) foundCols.price = true;
 
                             if (cIdx !== -1 && qIdx !== -1 && pIdx !== -1) {
                                 headerRowIdx = i;
@@ -1458,13 +1448,19 @@
                 if (file_doc_no === 'UNKNOWN') fileErrors.push("нет номера инвойса");
                 if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
                 
+                // Умный вывод ошибок: считаем, чего конкретно не хватает
                 if (!foundHeaderInFile) {
-                    if (bestMatchCount > 0) {
-                        // Если скрипт нашел хотя бы 1 или 2 колонки, он скажет точно, чего не хватает
-                        fileErrors.push(`не найдены: ${bestMissingCols.join(', ')}`);
+                    let missing = [];
+                    if (!foundCols.id) missing.push("«Код»");
+                    if (!foundCols.qty) missing.push("«Кол-во»");
+                    if (!foundCols.price) missing.push("«Цена»");
+
+                    if (missing.length === 3) {
+                        fileErrors.push("таблица не распознана (нет ни одной из колонок Код/Кол-во/Цена)");
+                    } else if (missing.length > 0) {
+                        fileErrors.push(`отсутствуют колонки: ${missing.join(', ')}`);
                     } else {
-                        // Если таблица вообще пустая или левая
-                        fileErrors.push("таблица не распознана (нет колонок Код/Кол-во/Цена)");
+                        fileErrors.push("Код, Цена и Кол-во раскиданы по разным строкам (должны быть в одной шапке)");
                     }
                 } else if (itemsInFile === 0) {
                     fileErrors.push("в таблице нет товаров с ценой");
@@ -1478,9 +1474,9 @@
                 }
             }
 
-            // ВЫВОД РЕЗУЛЬТАТОВ НА ЭКРАН (Снимаем ограничения по высоте)
+            // ВЫВОД РЕЗУЛЬТАТОВ НА ЭКРАН
             const debugContainer = document.getElementById('debug-container');
-            debugContainer.style.maxHeight = 'none'; // Показываем все файлы без скролла
+            debugContainer.style.maxHeight = 'none'; 
             debugContainer.style.overflowY = 'visible';
             debugContainer.innerHTML = processingLogs.join('');
             debugContainer.style.display = 'flex';
