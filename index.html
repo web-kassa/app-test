@@ -1295,7 +1295,8 @@
                 let itemsInFile = 0;
                 let foundHeaderInFile = false;
                 
-                let bestMatchCount = -1;
+                // Переменные для умного поиска "истинной" шапки таблицы
+                let bestMatchScore = -1;
                 let missingInBestMatch = ["«Код»", "«Кол-во»", "«Цена»"];
 
                 const b64Promise = new Promise((resolve) => {
@@ -1377,16 +1378,29 @@
                             let bIdx = row.findIndex(c => isSynonym(c, 'brand'));
                             let dIdx = row.findIndex(c => isSynonym(c, 'name'));
 
-                            let currentMatches = 0;
-                            let currentMissing = [];
-                            if (cIdx !== -1) currentMatches++; else currentMissing.push("«Код»");
-                            if (qIdx !== -1) currentMatches++; else currentMissing.push("«Кол-во»");
-                            if (pIdx !== -1) currentMatches++; else currentMissing.push("«Цена»");
+                            // --- УМНАЯ ОЦЕНКА СТРОКИ ---
+                            // Считаем, сколько вообще непустых колонок в этой строке
+                            let colsCount = row.filter(c => c !== undefined && c !== null && String(c).trim() !== '').length;
+                            
+                            // Даем баллы за каждую найденную колонку + за общую "длину" таблицы
+                            let score = (cIdx !== -1 ? 10 : 0) + 
+                                        (qIdx !== -1 ? 10 : 0) + 
+                                        (pIdx !== -1 ? 10 : 0) + 
+                                        (bIdx !== -1 ? 5 : 0) + 
+                                        (dIdx !== -1 ? 5 : 0) + 
+                                        (colsCount * 3); 
 
-                            if (currentMatches > bestMatchCount) {
-                                bestMatchCount = currentMatches;
+                            let currentMissing = [];
+                            if (cIdx === -1) currentMissing.push("«Код»");
+                            if (qIdx === -1) currentMissing.push("«Кол-во»");
+                            if (pIdx === -1) currentMissing.push("«Цена»");
+
+                            // Если эта строка больше похожа на главную шапку, чем предыдущие — запоминаем её ошибки
+                            if (score > bestMatchScore) {
+                                bestMatchScore = score;
                                 missingInBestMatch = currentMissing;
                             }
+                            // -----------------------------
 
                             if (cIdx !== -1 && qIdx !== -1 && pIdx !== -1) {
                                 headerRowIdx = i;
@@ -1454,11 +1468,7 @@
                 if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
                 
                 if (!foundHeaderInFile) {
-                    if (bestMatchCount === 0) {
-                        fileErrors.push("не найдена таблица (нет колонок Код, Кол-во, Цена)");
-                    } else {
-                        fileErrors.push(`не найдено: ${missingInBestMatch.join(', ')}`);
-                    }
+                    fileErrors.push(`не найдено: ${missingInBestMatch.join(', ')}`);
                 } else if (itemsInFile === 0) {
                     fileErrors.push("в таблице нет товаров с ценой");
                 }
