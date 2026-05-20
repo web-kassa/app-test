@@ -313,7 +313,7 @@
                     <button onclick="triggerGallery()" style="flex: 1; background: #222; color: #eee; border-color: #555; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 13px; text-transform: uppercase; border: 1px solid; cursor: pointer;">🔄 <span data-i18n="btn_gallery">ГАЛЕРЕЯ</span></button>
                 </div>
             </div>
-            <button id="btn-cancel-modal" class="cancel-btn" style="width: 100%; margin-top: 10px; background: #3a1a1a; color: #e74c3c; border-color: #e74c3c; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; text-transform: uppercase; border: 1px solid; cursor: pointer;" onclick="handleCancelModal()">ЗАКРЫТЬ</button>
+            <button id="btn-cancel-modal" class="cancel-btn" style="width: 100%; margin-top: 10px; background: #3a1a1a; color: #e74c3c; border-color: #e74c3c; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; text-transform: uppercase; border: 1px solid; cursor: pointer;" onclick="handleCancelModal()">ЗАКРЬІТЬ</button>
         </div>
     </div>
 
@@ -407,14 +407,11 @@
         let failedAttempts = parseInt(localStorage.getItem('pos_fails')) || 0;
         let blockUntil = parseInt(localStorage.getItem('pos_block')) || 0;
         
-        // --- ЗАЩИТА: База синонимов по умолчанию (включая китайский) ---
-        let invoiceSynonyms = {
-            id: ['code', 'item', 'артикул', 'код', 'код товара', '物料编码', '货号', '编码', '产品编号'],
-            name: ['description', 'наименование', 'товар', 'название', 'имя', '品名', '商品名称', '产品名称', '描述'],
-            qty: ['quantity', 'qty', 'кол-во', 'количество', 'к-во', 'шт', '数量', '件数', '总数'],
-            price: ['unit price', 'цена розница', 'цена продажи', 'розничная', 'цена', '单价', '价格', '单价($)'],
-            brand: ['brand', 'бренд', 'производитель', 'фабрика', '品牌', '商标']
-        };
+        // =========================================================================
+        // КРИТИЧЕСКИЙ ТЕСТ: ВНУТРЕННИЙ СЛОВАРЬ ПОЛНОСТЬЮ УДАЛЕН.
+        // Если данные не придут из Google Таблицы, парсинг выдаст ошибку шапок.
+        // =========================================================================
+        let invoiceSynonyms = {};
 
         function checkBlockTimer() {
             if (blockUntil > Date.now()) {
@@ -618,10 +615,12 @@
                     staffList = data.staff;
                     localStorage.setItem('staff_cache', JSON.stringify(staffList));
                 }
-                // Забираем с сервера, только если сервер не отдал пустоту
+                
+                // Забираем синонимы с сервера. Если лист прочитался — переменная заполнится
                 if (data.synonyms && Object.keys(data.synonyms).length > 0) {
                     invoiceSynonyms = data.synonyms;
                 }
+                
                 const t = data.totals || { cash: 0, qr_kaspi: 0, installment: 0, pos_terminal: 0, transfer: 0 };
                 document.getElementById('sum-cash').innerText = (t.cash || 0).toLocaleString() + ' ₸';
                 document.getElementById('sum-qr').innerText   = (t.qr_kaspi || t.qr || 0).toLocaleString() + ' ₸';
@@ -1309,10 +1308,9 @@
                     let headerRowIdx = -1;
                     let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
 
-                    // УЛУЧШЕННАЯ ЗАЩИТА: убиваем ВСЕ пробелы и переносы строк
+                    // Функция сопоставления заголовков с базой синонимов
                     function isSynonym(cellValue, targetKey) {
                         if (!cellValue) return false;
-                        // Удаляем пробелы, переносы строк, табы для 100% совпадения
                         const cleanCell = String(cellValue).replace(/\s+/g, '').toLowerCase();
                         const cleanTarget = targetKey.replace(/\s+/g, '').toLowerCase();
                         if (cleanCell === cleanTarget) return true;
@@ -1359,10 +1357,10 @@
                         }
                     }
 
-                    // --- РЕНТГЕН: ЕСЛИ ОШИБКА, ПОКАЗЫВАЕМ ВНУТРЕННОСТИ ФАЙЛА НА ЭКРАН ---
+                    // --- РЕНТГЕН-КОНТЕЙНЕР ДЛЯ ДИАГНОСТИКИ ---
                     if (headerRowIdx === -1) {
                         let debugHtml = `<div style="color: #e74c3c; font-weight: bold; margin-bottom: 10px; font-size: 16px;">❌ Заголовки не найдены!</div>`;
-                        debugHtml += `<div style="font-size: 11px; color: #aaa; margin-bottom: 5px;">Мы искали (очищенные от пробелов):</div>`;
+                        debugHtml += `<div style="font-size: 11px; color: #aaa; margin-bottom: 5px;">Мы искали по базе синонимов (сейчас она пустая, если сервер промолчал):</div>`;
                         debugHtml += `<div style="font-size: 11px; color: #f1c40f; margin-bottom: 10px; word-break: break-all;">ID: ${(invoiceSynonyms['id']||[]).join(', ')}<br>QTY: ${(invoiceSynonyms['qty']||[]).join(', ')}<br>PRICE: ${(invoiceSynonyms['price']||[]).join(', ')}</div>`;
                         debugHtml += `<div style="font-size: 11px; color: #aaa; margin-bottom: 5px;">Рентген первых 15 строк Excel:</div>`;
                         debugHtml += `<div style="overflow-x: auto; font-size: 10px; border: 1px solid #444; background: #000; padding: 5px;"><table style="border-collapse: collapse; width: 100%;">`;
