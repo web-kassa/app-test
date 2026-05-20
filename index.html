@@ -1278,7 +1278,7 @@
 
             parsedInvoiceData = []; 
             invoiceGroups = {}; 
-            let processingLogs = []; // Хранилище отчетов по каждому файлу
+            let processingLogs = []; // Отчеты по каждому файлу
 
             const markers = (invoiceSynonyms['supplier_keywords'] || ["the seller", "vendor", "supplier", "поставщик"]);
             const excludes = (invoiceSynonyms['exclude'] || ["commercial invoice", "packing list", "invoice", "specification"]);
@@ -1295,9 +1295,11 @@
                 let fileErrors = [];
                 let itemsInFile = 0;
                 let foundHeaderInFile = false;
-                let foundCols = { id: false, qty: false, price: false }; // ДОБАВЛЕНО: трекер найденных колонок
+                
+                // Переменные для умного поиска недостающих колонок
+                let bestMatchCount = 0;
+                let bestMissingCols = ["«Код/Артикул»", "«Кол-во»", "«Цена»"];
 
-                // Читаем оригинал файла в Base64 для отправки на сервер
                 const b64Promise = new Promise((resolve) => {
                     const reader = new FileReader();
                     reader.onload = (e) => resolve(e.target.result);
@@ -1377,10 +1379,18 @@
                             let bIdx = row.findIndex(c => isSynonym(c, 'brand'));
                             let dIdx = row.findIndex(c => isSynonym(c, 'name'));
 
-                            // Запоминаем, какие колонки вообще мелькали в документе
-                            if (cIdx !== -1) foundCols.id = true;
-                            if (qIdx !== -1) foundCols.qty = true;
-                            if (pIdx !== -1) foundCols.price = true;
+                            // Умная оценка строки: считаем, сколько колонок совпало
+                            let matches = 0;
+                            let currentMissing = [];
+                            if (cIdx !== -1) matches++; else currentMissing.push("«Код/Артикул»");
+                            if (qIdx !== -1) matches++; else currentMissing.push("«Кол-во»");
+                            if (pIdx !== -1) matches++; else currentMissing.push("«Цена»");
+
+                            // Если это самая похожая на шапку строка, запоминаем, чего в ней не хватает
+                            if (matches > bestMatchCount) {
+                                bestMatchCount = matches;
+                                bestMissingCols = currentMissing;
+                            }
 
                             if (cIdx !== -1 && qIdx !== -1 && pIdx !== -1) {
                                 headerRowIdx = i;
@@ -1448,49 +1458,48 @@
                 if (file_doc_no === 'UNKNOWN') fileErrors.push("нет номера инвойса");
                 if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
                 
-                // УМНЫЙ ВЫВОД НЕДОСТАЮЩИХ КОЛОНОК
                 if (!foundHeaderInFile) {
-                    let missing = [];
-                    if (!foundCols.id) missing.push("«Код/Артикул»");
-                    if (!foundCols.qty) missing.push("«Кол-во»");
-                    if (!foundCols.price) missing.push("«Цена»");
-                    fileErrors.push(`не найдены колонки: ${missing.join(', ')}`);
+                    if (bestMatchCount > 0) {
+                        // Если скрипт нашел хотя бы 1 или 2 колонки, он скажет точно, чего не хватает
+                        fileErrors.push(`не найдены: ${bestMissingCols.join(', ')}`);
+                    } else {
+                        // Если таблица вообще пустая или левая
+                        fileErrors.push("таблица не распознана (нет колонок Код/Кол-во/Цена)");
+                    }
                 } else if (itemsInFile === 0) {
                     fileErrors.push("в таблице нет товаров с ценой");
                 }
 
-                // АНАЛИЗ ОШИБОК ДЛЯ ЛОГА
-                if (file_doc_no === 'UNKNOWN') fileErrors.push("нет номера инвойса");
-                if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
-                if (!foundHeaderInFile) fileErrors.push("нет колонок (Код/Кол-во/Цена)");
-                else if (itemsInFile === 0) fileErrors.push("в таблице нет товаров с ценой");
-
                 // ФОРМИРОВАНИЕ ОТЧЕТА ПО ФАЙЛУ
                 if (fileErrors.length > 0) {
-                    processingLogs.push(`<div style="color:#e74c3c; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #e74c3c; background:#1a1a1a;">⚠️ <b>${file.name}</b>: ${fileErrors.join(', ')}</div>`);
+                    processingLogs.push(`<div style="color:#e74c3c; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #e74c3c; background:#1a1a1a;">⚠️ <b>${file.name}</b>: ${fileErrors.join(' | ')}</div>`);
                 } else {
                     processingLogs.push(`<div style="color:#2ecc71; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #2ecc71; background:#1a1a1a;">✅ <b>${file.name}</b>: Распознано ${itemsInFile} поз.</div>`);
                 }
             }
 
-            // ВЫВОД РЕЗУЛЬТАТОВ НА ЭКРАН
+            // ВЫВОД РЕЗУЛЬТАТОВ НА ЭКРАН (Снимаем ограничения по высоте)
             const debugContainer = document.getElementById('debug-container');
+            debugContainer.style.maxHeight = 'none'; // Показываем все файлы без скролла
+            debugContainer.style.overflowY = 'visible';
             debugContainer.innerHTML = processingLogs.join('');
             debugContainer.style.display = 'flex';
 
             if (parsedInvoiceData.length === 0) {
                 document.getElementById('invoicePreviewArea').style.display = 'none';
-                return; // Останавливаемся, так как ни один файл не дал полезных данных
+                return; 
             }
 
-            const uniqueDocs = Object.keys(invoiceGroups);
+            const uniqueDocs = Object.keys(invoiceGroups).filter(k => k !== 'UNKNOWN');
             const uniqueSuppliers = [...new Set(parsedInvoiceData.map(i => i.supplier))];
 
             let docUiHtml = '';
-            if (uniqueDocs.length === 1 && uniqueDocs[0] !== 'UNKNOWN') {
+            if (uniqueDocs.length === 1) {
                 docUiHtml = `<input type="text" id="ui-doc-no" value="${uniqueDocs[0]}" style="background:#222; color:#f1c40f; border:1px dashed #555; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:13px; width: 140px; outline:none;" title="Можно редактировать">`;
-            } else {
+            } else if (uniqueDocs.length > 1) {
                 docUiHtml = `<span style="color:#f1c40f; font-weight:bold;">${uniqueDocs.join(', ')}</span>`;
+            } else {
+                docUiHtml = `<span style="color:#e74c3c; font-weight:bold;">ОШИБКА НОМЕРА</span>`;
             }
 
             document.getElementById('invoiceMetadata').innerHTML = `Поставщик: <b style="color:#f1c40f;">${uniqueSuppliers.join(', ')}</b> | Документ: ${docUiHtml} | Позиций: ${parsedInvoiceData.length}`;
