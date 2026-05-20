@@ -1283,160 +1283,147 @@
         }
 
         function processInvoiceFile() {
-            const fileInput = document.getElementById('invoiceFileInput');
-            if (!fileInput.files.length) return alert("Пожалуйста, выберите файл!");
+    const fileInput = document.getElementById('invoiceFileInput');
+    if (!fileInput.files.length) return alert("Пожалуйста, выберите файл!");
 
-            const file = fileInput.files[0];
-            currentFileName = file.name;
-            const b64Reader = new FileReader();
-            b64Reader.onload = function(evt) {
-                currentFileBase64 = evt.target.result; 
-            };
-            b64Reader.readAsDataURL(file);
+    const file = fileInput.files[0];
+    currentFileName = file.name;
+    const b64Reader = new FileReader();
+    b64Reader.onload = function(evt) {
+        currentFileBase64 = evt.target.result; 
+    };
+    b64Reader.readAsDataURL(file);
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                
-                try {
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        try {
+            const workbook = XLSX.read(data, {type: 'array'});
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
-                    let doc_no = 'UNKNOWN', supplier = 'UNKNOWN';
-                    let headerRowIdx = -1;
-                    let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
+            let doc_no = 'UNKNOWN', supplier = 'UNKNOWN';
+            let headerRowIdx = -1;
+            let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
 
-                    // Функция сопоставления заголовков с базой синонимов
-                    function isSynonym(cellValue, targetKey) {
-                        if (!cellValue) return false;
-                        const cleanCell = String(cellValue).replace(/\s+/g, '').toLowerCase();
-                        const cleanTarget = targetKey.replace(/\s+/g, '').toLowerCase();
-                        if (cleanCell === cleanTarget) return true;
-                        
-                        const synonymsList = invoiceSynonyms[targetKey] || [];
-                        return synonymsList.some(syn => {
-                            const cleanSyn = syn.replace(/\s+/g, '').toLowerCase();
-                            return cleanSyn !== "" && cleanCell.includes(cleanSyn);
-                        });
-                    }
+            // Функция сопоставления заголовков
+            function isSynonym(cellValue, targetKey) {
+                if (!cellValue) return false;
+                const cleanCell = String(cellValue).replace(/\s+/g, '').toLowerCase();
+                const synonymsList = (invoiceSynonyms[targetKey] || []).map(s => s.replace(/\s+/g, '').toLowerCase());
+                return synonymsList.some(syn => syn !== "" && cleanCell.includes(syn));
+            }
 
-                    for (let i = 0; i < Math.min(30, rows.length); i++) {
-                        const row = rows[i] || [];
-                        if (row.length === 0) continue;
+            // --- 1. АВТОМАТИЧЕСКИЙ ПОИСК ПОСТАВЩИКА ---
+            const markers = (invoiceSynonyms['supplier_keywords'] || ["the seller", "vendor", "supplier", "поставщик"]);
+            const excludes = (invoiceSynonyms['exclude'] || ["packing list", "commercial invoice", "invoice", "specification"]);
 
-                        for (let j = 0; j < row.length; j++) {
-                            const cellValue = String(row[j] || '').toUpperCase().trim();
-                            if (cellValue.includes('CONTRACT NO')) {
-                                for (let k = j + 1; k < row.length; k++) {
-                                    if (row[k] && String(row[k]).trim() !== '') {
-                                        doc_no = String(row[k]).trim(); break;
-                                    }
-                                }
-                            }
-                            if (cellValue.includes('THE SELLER') || cellValue.includes('VENDOR')) {
-                                for (let k = j + 1; k < row.length; k++) {
-                                    if (row[k] && String(row[k]).trim() !== '') {
-                                        supplier = String(row[k]).trim().replace(/^"|"$/g, ''); break;
-                                    }
-                                }
-                            }
-                        }
-
-                        let cIdx = row.findIndex(c => isSynonym(c, 'id'));
-                        let qIdx = row.findIndex(c => isSynonym(c, 'qty'));
-                        let pIdx = row.findIndex(c => isSynonym(c, 'price'));
-                        let bIdx = row.findIndex(c => isSynonym(c, 'brand'));
-                        let dIdx = row.findIndex(c => isSynonym(c, 'name'));
-
-                        if (cIdx !== -1 && qIdx !== -1 && pIdx !== -1) {
-                            headerRowIdx = i;
-                            colMap = { code: cIdx, brand: bIdx, desc: dIdx, qty: qIdx, price: pIdx };
-                            break;
+            // Сначала пробуем найти через маркеры
+            let foundMarker = false;
+            for (let i = 0; i < Math.min(8, rows.length); i++) {
+                let row = rows[i];
+                if (!row) continue;
+                for (let j = 0; j < row.length; j++) {
+                    let cellVal = String(row[j] || "").toLowerCase();
+                    if (markers.some(m => cellVal.includes(m.toLowerCase()))) {
+                        // Берем значение из следующей ячейки
+                        if (row[j+1]) {
+                            supplier = String(row[j+1]).trim().replace(/^"|"$/g, '');
+                            foundMarker = true; break;
                         }
                     }
-
-                    // --- РЕНТГЕН-КОНТЕЙНЕР ДЛЯ ДИАГНОСТИКИ ---
-                    if (headerRowIdx === -1) {
-                        let debugHtml = `<div style="color: #e74c3c; font-weight: bold; margin-bottom: 10px; font-size: 16px;">❌ Заголовки не найдены!</div>`;
-                        debugHtml += `<div style="font-size: 11px; color: #aaa; margin-bottom: 5px;">Мы искали по базе синонимов (сейчас она пустая, если сервер промолчал):</div>`;
-                        debugHtml += `<div style="font-size: 11px; color: #f1c40f; margin-bottom: 10px; word-break: break-all;">ID: ${(invoiceSynonyms['id']||[]).join(', ')}<br>QTY: ${(invoiceSynonyms['qty']||[]).join(', ')}<br>PRICE: ${(invoiceSynonyms['price']||[]).join(', ')}</div>`;
-                        debugHtml += `<div style="font-size: 11px; color: #aaa; margin-bottom: 5px;">Рентген первых 15 строк Excel:</div>`;
-                        debugHtml += `<div style="overflow-x: auto; font-size: 10px; border: 1px solid #444; background: #000; padding: 5px;"><table style="border-collapse: collapse; width: 100%;">`;
-                        
-                        for (let r = 0; r < Math.min(15, rows.length); r++) {
-                            debugHtml += `<tr><td style="color:#666; border-right: 1px solid #333; padding: 2px 5px;">${r+1}</td>`;
-                            (rows[r] || []).forEach(c => {
-                                let cellVal = String(c || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                                debugHtml += `<td style="border: 1px solid #333; padding: 4px; white-space: nowrap; color: #ccc;">${cellVal}</td>`;
-                            });
-                            debugHtml += `</tr>`;
-                        }
-                        debugHtml += `</table></div>`;
-                        
-                        document.getElementById('debug-container').innerHTML = debugHtml;
-                        document.getElementById('debug-container').style.display = 'flex';
-                        document.getElementById('invoicePreviewArea').style.display = 'none';
-                        document.getElementById('parseInvoiceBtn').style.display = 'none';
-                        return;
-                    }
-
-                    document.getElementById('debug-container').style.display = 'none';
-                    parsedInvoiceData = [];
-                    for (let i = headerRowIdx + 1; i < rows.length; i++) {
-                        const row = rows[i];
-                        if (!row || row.length === 0) continue;
-                        
-                        const codeCell = String(row[colMap.code] || '').trim();
-                        if (!codeCell) continue;
-                        if (codeCell.toUpperCase().includes('TOTAL') || codeCell.toUpperCase().includes('NOTE')) break;
-
-                        let qty = parseFloat(row[colMap.qty]);
-                        let price = parseFloat(row[colMap.price]);
-                        
-                        let brandStr = colMap.brand !== -1 ? String(row[colMap.brand] || '').trim() : '';
-                        let descStr = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
-                        let fullName = `${brandStr} ${descStr}`.trim() || 'Без названия';
-
-                        if (!isNaN(qty) && !isNaN(price)) {
-                            parsedInvoiceData.push({
-                                doc_no: doc_no, supplier: supplier, item_id: codeCell,
-                                item_name: fullName, qty: qty, cost: price,
-                                staff_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.uid : 'Auto-Import' 
-                            });
-                        }
-                    }
-
-                    const labels = translations[currentLang];
-                    document.getElementById('invoiceMetadata').innerHTML = `
-                        <span style="color: #888; font-weight: normal;">${labels.income_meta_supplier}:</span> <span style="color: #f1c40f; font-weight: bold;">${supplier}</span> | 
-                        <span style="color: #888; font-weight: normal;">${labels.income_meta_doc}:</span> <span style="color: #f1c40f; font-weight: bold;">${doc_no}</span> | 
-                        <span style="color: #888; font-weight: normal;">${labels.income_meta_items}:</span> <span style="color: #f1c40f; font-weight: bold;">${parsedInvoiceData.length}</span>
-                    `;
-
-                    const tbody = document.getElementById('invoiceTableBody');
-                    tbody.innerHTML = '';
-                    parsedInvoiceData.forEach(item => {
-                        tbody.innerHTML += `
-                            <tr style="border-bottom: 1px solid #333;">
-                                <td style="padding: 5px;">${item.item_id}</td>
-                                <td style="padding: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">${item.item_name}</td>
-                                <td style="padding: 5px;">${item.qty}</td>
-                                <td style="padding: 5px;">$${item.cost}</td>
-                            </tr>`;
-                    });
-                    document.getElementById('invoicePreviewArea').style.display = 'flex';
-                    document.getElementById('parseInvoiceBtn').style.display = 'none';
-
-                } catch (error) {
-                    console.error(error);
-                    alert("❌ Ошибка при чтении файла Excel.");
                 }
-            };
+                if (foundMarker) break;
+            }
+
+            // Если через маркеры не нашли, берем первую непустую строку (fallback)
+            if (!foundMarker) {
+                for (let i = 0; i < Math.min(5, rows.length); i++) {
+                    let text = String(rows[i][0] || "").trim();
+                    if (text && !excludes.some(ex => text.toLowerCase().includes(ex.toLowerCase()))) {
+                        supplier = text.replace(/^"|"$/g, '');
+                        break;
+                    }
+                }
+            }
+
+            // --- 2. ПОИСК ЗАГОЛОВКОВ ---
+            for (let i = 0; i < Math.min(30, rows.length); i++) {
+                const row = rows[i] || [];
+                if (row.length === 0) continue;
+
+                // Ищем номер контракта (структурно)
+                for(let j=0; j<row.length; j++) {
+                    if (String(row[j]).toUpperCase().includes('CONTRACT NO')) {
+                        doc_no = String(row[j+1] || 'UNKNOWN').trim();
+                    }
+                }
+
+                let cIdx = row.findIndex(c => isSynonym(c, 'id'));
+                let qIdx = row.findIndex(c => isSynonym(c, 'qty'));
+                let pIdx = row.findIndex(c => isSynonym(c, 'price'));
+                let bIdx = row.findIndex(c => isSynonym(c, 'brand'));
+                let dIdx = row.findIndex(c => isSynonym(c, 'name'));
+
+                if (cIdx !== -1 && qIdx !== -1 && pIdx !== -1) {
+                    headerRowIdx = i;
+                    colMap = { code: cIdx, brand: bIdx, desc: dIdx, qty: qIdx, price: pIdx };
+                    break;
+                }
+            }
+
+            // Рентген при ошибке
+            if (headerRowIdx === -1) {
+                document.getElementById('debug-container').innerHTML = `<div style="color:#e74c3c; font-weight:bold;">❌ Заголовки не найдены!</div>`;
+                document.getElementById('debug-container').style.display = 'flex';
+                document.getElementById('invoicePreviewArea').style.display = 'none';
+                document.getElementById('parseInvoiceBtn').style.display = 'none';
+                return;
+            }
+
+            // --- 3. ПАРСИНГ ДАННЫХ ---
+            parsedInvoiceData = [];
+            for (let i = headerRowIdx + 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || !row[colMap.code]) continue;
+                
+                let codeCell = String(row[colMap.code]).trim();
+                if (codeCell.toUpperCase().includes('TOTAL')) break;
+
+                let qty = parseFloat(row[colMap.qty]);
+                let price = parseFloat(row[colMap.price]);
+                let brandStr = colMap.brand !== -1 ? String(row[colMap.brand] || '').trim() : '';
+                let descStr = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
+                
+                if (!isNaN(qty) && !isNaN(price)) {
+                    parsedInvoiceData.push({
+                        doc_no: doc_no, supplier: supplier, item_id: codeCell,
+                        item_name: `${brandStr} ${descStr}`.trim(), qty: qty, cost: price,
+                        staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
+                    });
+                }
+            }
+
+            // Рендеринг таблицы
+            document.getElementById('invoiceMetadata').innerHTML = `Поставщик: <b>${supplier}</b> | Документ: <b>${doc_no}</b> | Позиций: ${parsedInvoiceData.length}`;
+            const tbody = document.getElementById('invoiceTableBody');
+            tbody.innerHTML = parsedInvoiceData.map(item => `
+                <tr style="border-bottom:1px solid #333;">
+                    <td style="padding:5px;">${item.item_id}</td>
+                    <td style="padding:5px;">${item.item_name}</td>
+                    <td style="padding:5px;">${item.qty}</td>
+                    <td style="padding:5px;">$${item.cost}</td>
+                </tr>`).join('');
             
-            reader.readAsArrayBuffer(file);
+            document.getElementById('invoicePreviewArea').style.display = 'flex';
+            document.getElementById('parseInvoiceBtn').style.display = 'none';
+
+        } catch (error) {
+            alert("Ошибка чтения Excel: " + error.message);
         }
+    };
+    reader.readAsArrayBuffer(file);
+}
 
         function sendInvoiceToBackend() {
             if (parsedInvoiceData.length === 0) return alert("Корзина пуста!");
