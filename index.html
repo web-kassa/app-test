@@ -1208,7 +1208,7 @@
         let parsedInvoiceData = [];
         let currentFileBase64 = "";  
         let currentFileName = "";    
-        let masterWorkbook = null;
+        let invoiceGroups = {}; // ДОБАВЛЕНО: Группировка листов по инвойсам
 
         function toggleDropdown() {
             const list = document.getElementById('dropdownList');
@@ -1283,7 +1283,7 @@
             if (!fileInput.files.length) return alert("Пожалуйста, выберите файл!");
 
             parsedInvoiceData = []; 
-            masterWorkbook = XLSX.utils.book_new(); 
+            invoiceGroups = {}; // Очищаем группы перед новой загрузкой
 
             const markers = (invoiceSynonyms['supplier_keywords'] || ["the seller", "vendor", "supplier", "поставщик"]);
             const excludes = (invoiceSynonyms['exclude'] || ["commercial invoice", "packing list", "invoice", "specification"]);
@@ -1316,12 +1316,7 @@
                         const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
                         if (!rows || rows.length === 0) return;
 
-                        let newSheetName = `${shortFileName}_${sheetName}`.substring(0, 31);
-                        if (masterWorkbook.SheetNames.includes(newSheetName)) {
-                            newSheetName = `${shortFileName}_${Math.random().toString(36).substring(7)}`.substring(0, 31);
-                        }
-                        XLSX.utils.book_append_sheet(masterWorkbook, worksheet, newSheetName);
-
+                        // 1. Ищем поставщика
                         if (file_supplier === 'UNKNOWN') {
                             let foundSupplier = false;
                             for (let i = 0; i < Math.min(8, rows.length); i++) {
@@ -1342,6 +1337,7 @@
                             }
                         }
 
+                        // 2. Ищем заголовки таблицы и номер инвойса
                         let headerRowIdx = -1;
                         let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
 
@@ -1370,6 +1366,23 @@
                             }
                         }
 
+                        // --- ГРУППИРОВКА ЛИСТОВ ПО НОМЕРУ ИНВОЙСА ---
+                        if (!invoiceGroups[file_doc_no]) {
+                            invoiceGroups[file_doc_no] = {
+                                supplier: file_supplier,
+                                items: [],
+                                workbook: XLSX.utils.book_new()
+                            };
+                        }
+
+                        let newSheetName = `${shortFileName}_${sheetName}`.substring(0, 31);
+                        if (invoiceGroups[file_doc_no].workbook.SheetNames.includes(newSheetName)) {
+                            newSheetName = `${shortFileName}_${Math.random().toString(36).substring(7)}`.substring(0, 31);
+                        }
+                        XLSX.utils.book_append_sheet(invoiceGroups[file_doc_no].workbook, worksheet, newSheetName);
+                        // -------------------------------------------
+
+                        // 3. Собираем товары
                         if (headerRowIdx !== -1) {
                             for (let i = headerRowIdx + 1; i < rows.length; i++) {
                                 const row = rows[i];
@@ -1384,7 +1397,7 @@
                                 let descStr = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
                                 
                                 if (!isNaN(qty) && !isNaN(price)) {
-                                    parsedInvoiceData.push({
+                                    const itemData = {
                                         doc_no: file_doc_no, 
                                         supplier: file_supplier, 
                                         item_id: codeCell,
@@ -1392,7 +1405,9 @@
                                         qty: qty, 
                                         cost: price,
                                         staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
-                                    });
+                                    };
+                                    parsedInvoiceData.push(itemData);
+                                    invoiceGroups[file_doc_no].items.push(itemData); // Записываем товар в нужную группу
                                 }
                             }
                         }
@@ -1409,11 +1424,9 @@
                 return;
             }
 
-            // Получаем уникальные номера инвойсов и поставщиков из всех файлов
-            const uniqueDocs = [...new Set(parsedInvoiceData.map(i => i.doc_no))];
+            const uniqueDocs = Object.keys(invoiceGroups);
             const uniqueSuppliers = [...new Set(parsedInvoiceData.map(i => i.supplier))];
 
-            // Если инвойс один - даем возможность его редактировать. Если разные - показываем списком
             let docUiHtml = '';
             if (uniqueDocs.length === 1) {
                 docUiHtml = `<input type="text" id="ui-doc-no" value="${uniqueDocs[0]}" style="background:#222; color:#f1c40f; border:1px dashed #555; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:13px; width: 140px; outline:none;" title="Можно редактировать">`;
@@ -1421,7 +1434,7 @@
                 docUiHtml = `<span style="color:#f1c40f; font-weight:bold;">${uniqueDocs.join(', ')}</span>`;
             }
 
-            document.getElementById('invoiceMetadata').innerHTML = `Поставщик: <b style="color:#f1c40f;">${uniqueSuppliers.join(', ')}</b> | Документ: ${docUiHtml} | Позиций (все файлы): ${parsedInvoiceData.length}`;
+            document.getElementById('invoiceMetadata').innerHTML = `Поставщик: <b style="color:#f1c40f;">${uniqueSuppliers.join(', ')}</b> | Документ: ${docUiHtml} | Позиций: ${parsedInvoiceData.length}`;
             
             document.getElementById('invoiceTableBody').innerHTML = parsedInvoiceData.map(item => `
                 <tr style="border-bottom:1px solid #333;">
@@ -1438,20 +1451,21 @@
             document.getElementById('parseInvoiceBtn').style.display = 'none';
         }
 
-        function sendInvoiceToBackend() {
+        async function sendInvoiceToBackend() {
             if (parsedInvoiceData.length === 0) return alert("Корзина пуста!");
 
-            // Если поле редактирования инвойса существует (значит все товары из одного инвойса) - обновляем их
+            const docKeys = Object.keys(invoiceGroups);
             const docInput = document.getElementById('ui-doc-no');
-            if (docInput) {
+            
+            // Если инвойс один и пользователь изменил его номер руками - переименовываем группу
+            if (docKeys.length === 1 && docInput) {
                 const finalDocNo = docInput.value.trim();
                 if (!finalDocNo) return alert("Номер документа не может быть пустым!");
-                parsedInvoiceData.forEach(item => item.doc_no = finalDocNo);
-                currentFileName = `${finalDocNo}.xlsx`;
-            } else {
-                // Если инвойсов несколько, формируем общее имя файла
-                const uniqueDocs = [...new Set(parsedInvoiceData.map(i => i.doc_no))];
-                currentFileName = `MULTI_${uniqueDocs.join('_').substring(0, 30)}.xlsx`;
+                if (finalDocNo !== docKeys[0]) {
+                    invoiceGroups[finalDocNo] = invoiceGroups[docKeys[0]];
+                    delete invoiceGroups[docKeys[0]];
+                    invoiceGroups[finalDocNo].items.forEach(i => i.doc_no = finalDocNo);
+                }
             }
 
             const btn = document.getElementById('sendInvoiceBtn');
@@ -1462,43 +1476,65 @@
 
             btn.disabled = true; btn.style.opacity = '0.5';
             statusContainer.style.display = 'block';
-            statusText.innerText = "Сборка объединенного файла...";
             statusBar.style.width = '10%'; statusPercent.innerText = '10%';
 
-            try {
-                const b64Xlsx = XLSX.write(masterWorkbook, { bookType: 'xlsx', type: 'base64' });
-                currentFileBase64 = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + b64Xlsx;
-            } catch (err) {
-                alert("Ошибка при сборке книги Excel: " + err.message);
-                btn.disabled = false; btn.style.opacity = '1';
-                return;
+            const totalSteps = Object.keys(invoiceGroups).length;
+            let currentStep = 0;
+
+            // Отправляем каждый инвойс на сервер ОТДЕЛЬНЫМ запросом
+            for (let docNo of Object.keys(invoiceGroups)) {
+                currentStep++;
+                statusText.innerText = `Сборка файла ${currentStep} из ${totalSteps}...`;
+                
+                let group = invoiceGroups[docNo];
+                let b64Xlsx = "";
+                try {
+                    const b64 = XLSX.write(group.workbook, { bookType: 'xlsx', type: 'base64' });
+                    b64Xlsx = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + b64;
+                } catch (err) {
+                    alert(`Ошибка сборки книги Excel для ${docNo}: ` + err.message);
+                    btn.disabled = false; btn.style.opacity = '1';
+                    return;
+                }
+
+                statusText.innerText = `Отправка ${docNo}... (${currentStep}/${totalSteps})`;
+                let pct = Math.round((currentStep / totalSteps) * 100) - 10;
+                statusBar.style.width = pct + '%'; statusPercent.innerText = pct + '%';
+
+                try {
+                    const response = await fetch(APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ 
+                            action: 'income', 
+                            data: group.items,
+                            fileBase64: b64Xlsx,
+                            fileName: `${docNo}.xlsx`, // ФАЙЛ БУДЕТ НАЗВАН ПО НОМЕРУ ИНВОЙСА
+                            currency: document.getElementById('invoiceCurrency').value
+                        })
+                    });
+                    
+                    const res = await response.json();
+                    if (!res.success) {
+                        throw new Error(res.error);
+                    }
+                } catch (err) {
+                    statusText.innerText = "Ошибка сервера"; statusText.style.color = "#e74c3c";
+                    alert(`❌ Ошибка при отправке инвойса ${docNo}: ` + err.message);
+                    btn.disabled = false; btn.style.opacity = '1';
+                    return; // Прерываем отправку остальных при ошибке
+                }
             }
 
-            statusText.innerText = "Связь с сервером...";
-            statusBar.style.width = '30%'; statusPercent.innerText = '30%';
-
-            fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify({ 
-                    action: 'income', 
-                    data: parsedInvoiceData,
-                    fileBase64: currentFileBase64,
-                    fileName: currentFileName,
-                    currency: document.getElementById('invoiceCurrency').value
-                })
-            }).then(r => r.json()).then(res => {
-                statusBar.style.width = '100%'; statusPercent.innerText = '100%';
-                if (res.success) {
-                    statusText.innerText = "Готово! Склад обновлен.";
-                    setTimeout(() => { alert("✅ Накладная успешно проведена!"); toggleIncomeModule(); if (typeof load === 'function') load(); }, 500);
-                } else {
-                    statusText.innerText = "Ошибка сервера"; statusText.style.color = "#e74c3c";
-                    alert("❌ Ошибка сервера: " + res.error);
-                }
-            }).catch(err => {
-                statusText.innerText = "Ошибка сети"; statusText.style.color = "#e74c3c";
-                alert("❌ Ошибка сети: " + err);
-            }).finally(() => { btn.disabled = false; btn.style.opacity = '1'; });
+            // Если цикл завершился без ошибок
+            statusBar.style.width = '100%'; statusPercent.innerText = '100%';
+            statusText.innerText = "Готово! Склад обновлен.";
+            setTimeout(() => { 
+                alert("✅ Все накладные успешно проведены!"); 
+                toggleIncomeModule(); 
+                if (typeof load === 'function') load(); 
+            }, 500);
+            
+            btn.disabled = false; btn.style.opacity = '1';
         }
     </script>
 
