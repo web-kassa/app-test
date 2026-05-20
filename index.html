@@ -407,10 +407,6 @@
         let failedAttempts = parseInt(localStorage.getItem('pos_fails')) || 0;
         let blockUntil = parseInt(localStorage.getItem('pos_block')) || 0;
         
-        // =========================================================================
-        // КРИТИЧЕСКИЙ ТЕСТ: ВНУТРЕННИЙ СЛОВАРЬ ПОЛНОСТЬЮ УДАЛЕН.
-        // Если данные не придут из Google Таблицы, парсинг выдаст ошибку шапок.
-        // =========================================================================
         let invoiceSynonyms = {};
 
         function checkBlockTimer() {
@@ -616,7 +612,6 @@
                     localStorage.setItem('staff_cache', JSON.stringify(staffList));
                 }
                 
-                // Забираем синонимы с сервера. Если лист прочитался — переменная заполнится
                 if (data.synonyms && Object.keys(data.synonyms).length > 0) {
                     invoiceSynonyms = data.synonyms;
                 }
@@ -1213,6 +1208,7 @@
         let parsedInvoiceData = [];
         let currentFileBase64 = "";  
         let currentFileName = "";    
+        let masterWorkbook = null;
 
         function toggleDropdown() {
             const list = document.getElementById('dropdownList');
@@ -1247,7 +1243,7 @@
             const containerBox = document.getElementById('fileInputLabel');
             
             if (input.files && input.files.length > 0) {
-                fileNameText.innerText = input.files[0].name;
+                fileNameText.innerText = input.files.length > 1 ? "Выбрано файлов: " + input.files.length : input.files[0].name;
                 fileNameText.classList.remove('file-placeholder-text');
                 fileNameText.style.color = '#fff';          
                 containerBox.style.borderColor = '#2ecc71'; 
@@ -1282,148 +1278,155 @@
             }
         }
 
-        function processInvoiceFile() {
-    const fileInput = document.getElementById('invoiceFileInput');
-    if (!fileInput.files.length) return alert("Пожалуйста, выберите файл!");
+        async function processInvoiceFile() {
+            const fileInput = document.getElementById('invoiceFileInput');
+            if (!fileInput.files.length) return alert("Пожалуйста, выберите файл!");
 
-    const file = fileInput.files[0];
-    currentFileName = file.name;
-    const b64Reader = new FileReader();
-    b64Reader.onload = function(evt) { currentFileBase64 = evt.target.result; };
-    b64Reader.readAsDataURL(file);
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const data = new Uint8Array(e.target.result);
-        try {
-            const workbook = XLSX.read(data, {type: 'array'});
-            
             let doc_no = 'UNKNOWN', supplier = 'UNKNOWN';
-            parsedInvoiceData = []; // Сюда соберем товары со ВСЕХ листов файла
+            parsedInvoiceData = []; 
+            masterWorkbook = XLSX.utils.book_new(); 
 
             const markers = (invoiceSynonyms['supplier_keywords'] || ["the seller", "vendor", "supplier", "поставщик"]);
             const excludes = (invoiceSynonyms['exclude'] || ["commercial invoice", "packing list", "invoice", "specification"]);
 
-            // Внедряем цикл по абсолютно всем листам в книге Excel
-            workbook.SheetNames.forEach((sheetName) => {
-                const worksheet = workbook.Sheets[sheetName];
-                const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-                if (!rows || rows.length === 0) return; // Если лист пустой, пропускаем
+            function isSynonym(cellValue, targetKey) {
+                if (!cellValue) return false;
+                const cleanCell = String(cellValue).replace(/\s+/g, '').toLowerCase();
+                const synonymsList = (invoiceSynonyms[targetKey] || []).map(s => s.replace(/\s+/g, '').toLowerCase());
+                return synonymsList.some(syn => syn !== "" && cleanCell.includes(syn));
+            }
 
-                // Функция сопоставления заголовков
-                function isSynonym(cellValue, targetKey) {
-                    if (!cellValue) return false;
-                    const cleanCell = String(cellValue).replace(/\s+/g, '').toLowerCase();
-                    const synonymsList = (invoiceSynonyms[targetKey] || []).map(s => s.replace(/\s+/g, '').toLowerCase());
-                    return synonymsList.some(syn => syn !== "" && cleanCell.includes(syn));
-                }
+            for (let file of fileInput.files) {
+                const dataPromise = new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(new Uint8Array(e.target.result));
+                    reader.readAsArrayBuffer(file);
+                });
 
-                // 1. ИЩЕМ ПОСТАВЩИКА (только если еще не нашли на предыдущих листах)
-                if (supplier === 'UNKNOWN') {
-                    let foundSupplier = false;
-                    for (let i = 0; i < Math.min(8, rows.length); i++) {
-                        let row = rows[i];
-                        if (!row) continue;
-                        for (let j = 0; j < row.length; j++) {
-                            let cellVal = String(row[j] || "").toLowerCase();
-                            if (markers.some(m => cellVal.includes(m.toLowerCase()))) {
-                                if (row[j+1]) { supplier = String(row[j+1]).trim().replace(/^"|"$/g, ''); foundSupplier = true; break; }
+                const arrayBuffer = await dataPromise;
+                try {
+                    const workbook = XLSX.read(arrayBuffer, {type: 'array'});
+                    
+                    const shortFileName = file.name.replace(/\.[^/.]+$/, "");
+
+                    workbook.SheetNames.forEach((sheetName) => {
+                        const worksheet = workbook.Sheets[sheetName];
+                        const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                        if (!rows || rows.length === 0) return;
+
+                        let newSheetName = `${shortFileName}_${sheetName}`.substring(0, 31);
+                        if (masterWorkbook.SheetNames.includes(newSheetName)) {
+                            newSheetName = `${shortFileName}_${Math.random().toString(36).substring(7)}`.substring(0, 31);
+                        }
+                        XLSX.utils.book_append_sheet(masterWorkbook, worksheet, newSheetName);
+
+                        if (supplier === 'UNKNOWN') {
+                            let foundSupplier = false;
+                            for (let i = 0; i < Math.min(8, rows.length); i++) {
+                                let row = rows[i];
+                                if (!row) continue;
+                                for (let j = 0; j < row.length; j++) {
+                                    let cellVal = String(row[j] || "").toLowerCase();
+                                    if (markers.some(m => cellVal.includes(m.toLowerCase()))) {
+                                        if (row[j+1]) { supplier = String(row[j+1]).trim().replace(/^"|"$/g, ''); foundSupplier = true; break; }
+                                    }
+                                }
+                                if (foundSupplier) break;
+                                let text = String(row[0] || "").trim();
+                                if (text && !excludes.some(ex => text.toLowerCase().includes(ex.toLowerCase()))) {
+                                    supplier = text.replace(/^"|"$/g, '');
+                                    foundSupplier = true; break;
+                                }
                             }
                         }
-                        if (foundSupplier) break;
-                        let text = String(row[0] || "").trim();
-                        if (text && !excludes.some(ex => text.toLowerCase().includes(ex.toLowerCase()))) {
-                            supplier = text.replace(/^"|"$/g, '');
-                            foundSupplier = true; break;
-                        }
-                    }
-                }
 
-                // 2. ИЩЕМ ЗАГОЛОВКИ ТАБЛИЦЫ НА ТЕКУЩЕМ ЛИСТЕ
-                let headerRowIdx = -1;
-                let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
+                        let headerRowIdx = -1;
+                        let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
 
-                for (let i = 0; i < Math.min(30, rows.length); i++) {
-                    const row = rows[i] || [];
-                    if (row.length === 0) continue;
+                        for (let i = 0; i < Math.min(30, rows.length); i++) {
+                            const row = rows[i] || [];
+                            if (row.length === 0) continue;
 
-                    // Ищем номер инвойса (только если еще не нашли)
-                    if (doc_no === 'UNKNOWN') {
-                        for (let j = 0; j < row.length; j++) {
-                            if (isSynonym(row[j], 'invoice_no')) {
-                                doc_no = String(row[j+1] || 'UNKNOWN').trim();
+                            if (doc_no === 'UNKNOWN') {
+                                for (let j = 0; j < row.length; j++) {
+                                    if (isSynonym(row[j], 'invoice_no')) {
+                                        doc_no = String(row[j+1] || 'UNKNOWN').trim();
+                                    }
+                                }
+                            }
+
+                            let cIdx = row.findIndex(c => isSynonym(c, 'id'));
+                            let qIdx = row.findIndex(c => isSynonym(c, 'qty'));
+                            let pIdx = row.findIndex(c => isSynonym(c, 'price'));
+                            let bIdx = row.findIndex(c => isSynonym(c, 'brand'));
+                            let dIdx = row.findIndex(c => isSynonym(c, 'name'));
+
+                            if (cIdx !== -1 && qIdx !== -1 && pIdx !== -1) {
+                                headerRowIdx = i;
+                                colMap = { code: cIdx, brand: bIdx, desc: dIdx, qty: qIdx, price: pIdx };
+                                break;
                             }
                         }
-                    }
 
-                    let cIdx = row.findIndex(c => isSynonym(c, 'id'));
-                    let qIdx = row.findIndex(c => isSynonym(c, 'qty'));
-                    let pIdx = row.findIndex(c => isSynonym(c, 'price'));
-                    let bIdx = row.findIndex(c => isSynonym(c, 'brand'));
-                    let dIdx = row.findIndex(c => isSynonym(c, 'name'));
+                        if (headerRowIdx !== -1) {
+                            for (let i = headerRowIdx + 1; i < rows.length; i++) {
+                                const row = rows[i];
+                                if (!row || !row[colMap.code]) continue;
+                                
+                                let codeCell = String(row[colMap.code]).trim();
+                                if (codeCell.toUpperCase().includes('TOTAL')) break;
 
-                    if (cIdx !== -1 && qIdx !== -1 && pIdx !== -1) {
-                        headerRowIdx = i;
-                        colMap = { code: cIdx, brand: bIdx, desc: dIdx, qty: qIdx, price: pIdx };
-                        break;
-                    }
-                }
-
-                // 3. ПАРСИМ ТОВАРЫ С ТЕКУЩЕГО ЛИСТА (если нашли шапку таблицы)
-                if (headerRowIdx !== -1) {
-                    for (let i = headerRowIdx + 1; i < rows.length; i++) {
-                        const row = rows[i];
-                        if (!row || !row[colMap.code]) continue;
-                        
-                        let codeCell = String(row[colMap.code]).trim();
-                        if (codeCell.toUpperCase().includes('TOTAL')) break;
-
-                        let qty = parseFloat(row[colMap.qty]);
-                        let price = parseFloat(row[colMap.price]);
-                        let brandStr = colMap.brand !== -1 ? String(row[colMap.brand] || '').trim() : '';
-                        let descStr = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
-                        
-                        if (!isNaN(qty) && !isNaN(price)) {
-                            parsedInvoiceData.push({
-                                doc_no: doc_no, supplier: supplier, item_id: codeCell,
-                                item_name: `${brandStr} ${descStr}`.trim(), qty: qty, cost: price,
-                                staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
-                            });
+                                let qty = parseFloat(row[colMap.qty]);
+                                let price = parseFloat(row[colMap.price]);
+                                let brandStr = colMap.brand !== -1 ? String(row[colMap.brand] || '').trim() : '';
+                                let descStr = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
+                                
+                                if (!isNaN(qty) && !isNaN(price)) {
+                                    parsedInvoiceData.push({
+                                        doc_no: doc_no, supplier: supplier, item_id: codeCell,
+                                        item_name: `${brandStr} ${descStr}`.trim(), qty: qty, cost: price,
+                                        staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
+                                    });
+                                }
+                            }
                         }
-                    }
+                    });
+                } catch (err) {
+                    console.error("Ошибка чтения файла: " + file.name, err);
                 }
-            });
+            }
 
-            // Проверяем результат сборки по всем страницам
             if (parsedInvoiceData.length === 0) {
-                document.getElementById('debug-container').innerHTML = `<div style="color:#e74c3c; font-weight:bold;">❌ Ни на одном листе не найдены таблицы товаров!</div>`;
+                document.getElementById('debug-container').innerHTML = `<div style="color:#e74c3c; font-weight:bold;">❌ Ни в одном из файлов не найдены таблицы товаров с ценами!</div>`;
                 document.getElementById('debug-container').style.display = 'flex';
                 document.getElementById('invoicePreviewArea').style.display = 'none';
                 return;
             }
 
-            // Выводим общую сумму позиций со всех вкладок
-            document.getElementById('invoiceMetadata').innerHTML = `Поставщик: <b>${supplier}</b> | Документ: <b>${doc_no}</b> | Позиций (все листы): ${parsedInvoiceData.length}`;
+            currentFileName = `${doc_no}.xlsx`;
+
+            document.getElementById('invoiceMetadata').innerHTML = `Поставщик: <b style="color:#f1c40f;">${supplier}</b> | Документ: <input type="text" id="ui-doc-no" value="${doc_no}" style="background:#222; color:#f1c40f; border:1px dashed #555; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:13px; width: 140px; outline:none;" title="Можно редактировать"> | Позиций (все файлы): ${parsedInvoiceData.length}`;
+            
             document.getElementById('invoiceTableBody').innerHTML = parsedInvoiceData.map(item => `
                 <tr style="border-bottom:1px solid #333;">
                     <td style="padding:5px;">${item.item_id}</td>
-                    <td style="padding:5px;">${item.item_name}</td>
+                    <td style="padding:5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">${item.item_name}</td>
                     <td style="padding:5px;">${item.qty}</td>
                     <td style="padding:5px;">$${item.cost}</td>
                 </tr>`).join('');
             
             document.getElementById('invoicePreviewArea').style.display = 'flex';
             document.getElementById('parseInvoiceBtn').style.display = 'none';
-
-        } catch (error) {
-            alert("Ошибка чтения Excel: " + error.message);
         }
-    };
-    reader.readAsArrayBuffer(file);
-}
 
         function sendInvoiceToBackend() {
             if (parsedInvoiceData.length === 0) return alert("Корзина пуста!");
+
+            const finalDocNo = document.getElementById('ui-doc-no').value.trim();
+            if (!finalDocNo) return alert("Номер документа не может быть пустым!");
+            parsedInvoiceData.forEach(item => item.doc_no = finalDocNo);
+            currentFileName = `${finalDocNo}.xlsx`;
+
             const btn = document.getElementById('sendInvoiceBtn');
             const statusContainer = document.getElementById('status-container');
             const statusBar = document.getElementById('status-bar');
@@ -1432,8 +1435,20 @@
 
             btn.disabled = true; btn.style.opacity = '0.5';
             statusContainer.style.display = 'block';
-            statusText.innerText = "Связь с сервером...";
+            statusText.innerText = "Сборка объединенного файла...";
             statusBar.style.width = '10%'; statusPercent.innerText = '10%';
+
+            try {
+                const b64Xlsx = XLSX.write(masterWorkbook, { bookType: 'xlsx', type: 'base64' });
+                currentFileBase64 = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + b64Xlsx;
+            } catch (err) {
+                alert("Ошибка при сборке книги Excel: " + err.message);
+                btn.disabled = false; btn.style.opacity = '1';
+                return;
+            }
+
+            statusText.innerText = "Связь с сервером...";
+            statusBar.style.width = '30%'; statusPercent.innerText = '30%';
 
             fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
@@ -1488,7 +1503,7 @@
                         </div>
                         <span style="color: #666; font-size: 11px;">📎</span>
                     </label>
-                    <input type="file" id="invoiceFileInput" accept=".csv, .xls, .xlsx" style="display: none;" onchange="updateFileNameCompactUI(this)">
+                    <input type="file" id="invoiceFileInput" accept=".csv, .xls, .xlsx" style="display: none;" multiple onchange="updateFileNameCompactUI(this)">
                 </div>
             </div>
             
