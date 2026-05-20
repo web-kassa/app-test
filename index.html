@@ -144,19 +144,8 @@
         input[type="date"]::-webkit-calendar-picker-indicator { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
         
         .item-wrapper { margin-bottom: 4px; }
-.item-card { 
-    display: grid; 
-    /* 1fr для имени, 45px для кол-ва, и минимум 90px (или больше) для суммы */
-    grid-template-columns: 1fr 45px minmax(90px, auto); 
-    gap: 8px; 
-    padding: 6px 8px; 
-    border: 1px solid #333; 
-    border-radius: 5px; 
-    background: #2d2d30; 
-    cursor: pointer; 
-    transition: background 0.2s; 
-    align-items: center; 
-}        .item-wrapper.active .dropdown-icon { transform: rotate(180deg); color: #4ade80; }
+        .item-card { display: grid; grid-template-columns: 1fr 45px minmax(90px, auto); gap: 8px; padding: 6px 8px; border: 1px solid #333; border-radius: 5px; background: #2d2d30; cursor: pointer; transition: background 0.2s; align-items: center; }        
+        .item-wrapper.active .dropdown-icon { transform: rotate(180deg); color: #4ade80; }
         .item-wrapper.active .item-details { max-height: 120px; }
         .item-details { background: #252526; border: 1px solid #333; border-top: none; border-bottom-left-radius: 5px; border-bottom-right-radius: 5px; max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out; }
     
@@ -164,14 +153,9 @@
         #rep-clear-search { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #666; font-size: 16px; cursor: pointer; display: none; padding: 5px; }
         .rep-table-header { position: sticky; top: 0; z-index: 10; background: #111; display: grid; grid-template-columns: 1fr 40px 85px; gap: 8px; font-size: 10px; color: #666; font-weight: bold; padding: 8px 8px; border-bottom: 1px solid #333; text-transform: uppercase; }
     
-    /* --- КНОПКА SOFT SYNC --- */
+        /* --- КНОПКА SOFT SYNC --- */
         @keyframes spin-sync { 100% { transform: rotate(360deg); } }
-        .sync-spin { 
-            animation: spin-sync 1s linear infinite; 
-            color: #2ecc71 !important; 
-            border-color: #2ecc71 !important;
-            pointer-events: none; 
-        }
+        .sync-spin { animation: spin-sync 1s linear infinite; color: #2ecc71 !important; border-color: #2ecc71 !important; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -420,10 +404,17 @@
         let staffList = [], currentUser = null;
         let currentPinInput = '';
 
-        // Память для защиты от подбора ПИН-кода
         let failedAttempts = parseInt(localStorage.getItem('pos_fails')) || 0;
         let blockUntil = parseInt(localStorage.getItem('pos_block')) || 0;
-        let invoiceSynonyms = {}; // База синонимов для инвойсов
+        
+        // --- ЗАЩИТА: База синонимов по умолчанию (включая китайский) ---
+        let invoiceSynonyms = {
+            id: ['code', 'item', 'артикул', 'код', 'код товара', '物料编码', '货号', '编码', '产品编号'],
+            name: ['description', 'наименование', 'товар', 'название', 'имя', '品名', '商品名称', '产品名称', '描述'],
+            qty: ['quantity', 'qty', 'кол-во', 'количество', 'к-во', 'шт', '数量', '件数', '总数'],
+            price: ['unit price', 'цена розница', 'цена продажи', 'розничная', 'цена', '单价', '价格', '单价($)'],
+            brand: ['brand', 'бренд', 'производитель', 'фабрика', '品牌', '商标']
+        };
 
         function checkBlockTimer() {
             if (blockUntil > Date.now()) {
@@ -444,7 +435,7 @@
                         localStorage.removeItem('pos_block');
                         
                         err.style.visibility = 'hidden';
-                        field.style.color = '#f1c40f'; // Возвращаем желтые звездочки
+                        field.style.color = '#f1c40f'; 
                         err.innerText = "НЕВЕРНЫЙ ПИН-КОД";
                     } else {
                         const mins = Math.floor(remaining / 60);
@@ -503,7 +494,6 @@
         }
 
         async function handleAutoLogin(val) {
-            // Если касса заблокирована — не реагируем на нажатия
             if (blockUntil > Date.now()) {
                 clearPin();
                 return; 
@@ -526,7 +516,6 @@
                 const res = await response.json();
 
                 if (res.success) {
-                    // Сбрасываем счетчик ошибок при успешном входе
                     failedAttempts = 0;
                     localStorage.removeItem('pos_fails');
                     localStorage.removeItem('pos_block');
@@ -549,13 +538,10 @@
 
             } catch (error) {
                 console.error("Ошибка авторизации:", error);
-                
-                // Увеличиваем счетчик неудач
                 failedAttempts++;
                 localStorage.setItem('pos_fails', failedAttempts);
 
                 if (failedAttempts >= 3) {
-                    // Блокируем на 5 минут (5 * 60 * 1000)
                     blockUntil = Date.now() + 5 * 60 * 1000;
                     localStorage.setItem('pos_block', blockUntil);
                     
@@ -632,7 +618,8 @@
                     staffList = data.staff;
                     localStorage.setItem('staff_cache', JSON.stringify(staffList));
                 }
-                if (data.synonyms) {
+                // Забираем с сервера, только если сервер не отдал пустоту
+                if (data.synonyms && Object.keys(data.synonyms).length > 0) {
                     invoiceSynonyms = data.synonyms;
                 }
                 const t = data.totals || { cash: 0, qr_kaspi: 0, installment: 0, pos_terminal: 0, transfer: 0 };
@@ -647,25 +634,14 @@
             } catch (e) { console.error("Ошибка загрузки данных"); }
         }
 
-        // --- ФУНКЦИЯ МЯГКОГО ОБНОВЛЕНИЯ ДАННЫХ ---
         async function refreshPosData() {
             if (!navigator.onLine) {
                 alert(translations[currentLang].msg_no_internet);
                 return;
             }
-            
             const btn = document.getElementById('btn-sync-data');
-            btn.classList.add('sync-spin'); // Запускаем анимацию кручения
-            
-            try {
-                // Вызываем вашу уже существующую функцию загрузки
-                await load(); 
-            } finally {
-                // Останавливаем крутилку с небольшой задержкой для красоты
-                setTimeout(() => {
-                    btn.classList.remove('sync-spin');
-                }, 600);
-            }
+            btn.classList.add('sync-spin'); 
+            try { await load(); } finally { setTimeout(() => { btn.classList.remove('sync-spin'); }, 600); }
         }
 
         function render() {
@@ -1034,57 +1010,53 @@
                 let sortedItems = Object.values(aggregated).sort((a, b) => (b.salesSum - b.returnsSum) - (a.salesSum - a.returnsSum));
                 let htmlString = `<div class="rep-table-header"><div>${ui.name}</div><div style="text-align: right;">${ui.qty}</div><div style="text-align: right;">${ui.sum}</div></div>`;
                 
-                // Внутри renderReport, где идет цикл по sortedItems:
-sortedItems.forEach(item => {
-    const netQty = item.salesQty - item.returnsQty;
-    const netSum = item.salesSum - item.returnsSum;
-    let detailsHtml = '';
+                sortedItems.forEach(item => {
+                    const netQty = item.salesQty - item.returnsQty;
+                    const netSum = item.salesSum - item.returnsSum;
+                    let detailsHtml = '';
 
-    if (item.salesQty > 0) {
-        // РАСЧЕТ СРЕДНЕЙ ЦЕНЫ ПРОДАЖИ
-        let avgSale = Math.round(item.salesSum / item.salesQty);
-        detailsHtml += `
-            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
-                <span style="color: #888;">${ui.sales} (${item.salesQty}) <small>| ${translations[currentLang].report_avg} ${avgSale.toLocaleString()} ₸</small></span>
-                <span style="color: #4ade80;">${item.salesSum.toLocaleString()}</span>
-            </div>`;
-    }
+                    if (item.salesQty > 0) {
+                        let avgSale = Math.round(item.salesSum / item.salesQty);
+                        detailsHtml += `
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+                                <span style="color: #888;">${ui.sales} (${item.salesQty}) <small>| ${translations[currentLang].report_avg} ${avgSale.toLocaleString()} ₸</small></span>
+                                <span style="color: #4ade80;">${item.salesSum.toLocaleString()}</span>
+                            </div>`;
+                    }
 
-    if (item.returnsQty > 0) {
-        // РАСЧЕТ СРЕДНЕЙ ЦЕНЫ ВОЗВРАТА
-        let avgReturn = Math.round(item.returnsSum / item.returnsQty);
-        detailsHtml += `
-            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
-                <span style="color: #888;">${ui.returns} (${item.returnsQty}) <small>| ${translations[currentLang].report_avg} ${avgReturn.toLocaleString()} ₸</small></span>
-                <span style="color: #f87171;">-${item.returnsSum.toLocaleString()}</span>
-            </div>`;
-    }
+                    if (item.returnsQty > 0) {
+                        let avgReturn = Math.round(item.returnsSum / item.returnsQty);
+                        detailsHtml += `
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+                                <span style="color: #888;">${ui.returns} (${item.returnsQty}) <small>| ${translations[currentLang].report_avg} ${avgReturn.toLocaleString()} ₸</small></span>
+                                <span style="color: #f87171;">-${item.returnsSum.toLocaleString()}</span>
+                            </div>`;
+                    }
 
-    htmlString += `
-        <div class="item-wrapper" data-name="${item.name.toLowerCase()}">
-            <div class="item-card" onclick="this.parentElement.classList.toggle('active')">
-                <div style="font-size: 12px; color: #e0e0e0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</div>
-                <div style="text-align: right; color: #888; font-size: 12px;">${netQty}</div>
-                <div style="text-align: right; font-weight: 700; font-size: 13px; color: ${netSum < 0 ? '#f87171' : '#4ade80'}; gap: 4px;">${netSum.toLocaleString()} <span class="dropdown-icon" style="font-size:8px">▼</span></div>
-            </div>
-            <div class="item-details"><div style="padding: 6px 8px;">${detailsHtml}</div></div>
-        </div>`;
-});
+                    htmlString += `
+                        <div class="item-wrapper" data-name="${item.name.toLowerCase()}">
+                            <div class="item-card" onclick="this.parentElement.classList.toggle('active')">
+                                <div style="font-size: 12px; color: #e0e0e0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</div>
+                                <div style="text-align: right; color: #888; font-size: 12px;">${netQty}</div>
+                                <div style="text-align: right; font-weight: 700; font-size: 13px; color: ${netSum < 0 ? '#f87171' : '#4ade80'}; gap: 4px;">${netSum.toLocaleString()} <span class="dropdown-icon" style="font-size:8px">▼</span></div>
+                            </div>
+                            <div class="item-details"><div style="padding: 6px 8px;">${detailsHtml}</div></div>
+                        </div>`;
+                });
 
                 repList.innerHTML = htmlString;
                 totalsBox.innerHTML = `
-    <div style="display: grid; grid-template-columns: 1fr 45px minmax(90px, auto); gap: 8px; font-size: 12px; color: #888; margin-bottom: 4px;">
-        <div>${ui.sales}:</div><div style="text-align: right;">${tSalesQty}</div><div style="text-align: right;">${tSalesSum.toLocaleString()}</div>
-    </div>
-    <div style="display: grid; grid-template-columns: 1fr 45px minmax(90px, auto); gap: 8px; font-size: 12px; color: #f87171; margin-bottom: 4px;">
-        <div>${ui.returns}:</div><div style="text-align: right;">${tReturnsQty > 0 ? '-' + tReturnsQty : '0'}</div><div style="text-align: right;">${tReturnsSum > 0 ? '-' + tReturnsSum.toLocaleString() : '0'}</div>
-    </div>
-    <div style="display: grid; grid-template-columns: 1fr 45px minmax(90px, auto); gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #444; align-items: center;">
-        <div style="font-size: 13px; font-weight: 700; color: #fff;">${ui.net}</div>
-        <div style="text-align: right; font-size: 12px; font-weight: bold; color: #777;">${tSalesQty - tReturnsQty}</div>
-        <div style="text-align: right; font-size: 15px; font-weight: 900; color: #fff; white-space: nowrap;">${(tSalesSum - tReturnsSum).toLocaleString()} ₸</div>
-    </div>
-`;
+                    <div style="display: grid; grid-template-columns: 1fr 45px minmax(90px, auto); gap: 8px; font-size: 12px; color: #888; margin-bottom: 4px;">
+                        <div>${ui.sales}:</div><div style="text-align: right;">${tSalesQty}</div><div style="text-align: right;">${tSalesSum.toLocaleString()}</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 45px minmax(90px, auto); gap: 8px; font-size: 12px; color: #f87171; margin-bottom: 4px;">
+                        <div>${ui.returns}:</div><div style="text-align: right;">${tReturnsQty > 0 ? '-' + tReturnsQty : '0'}</div><div style="text-align: right;">${tReturnsSum > 0 ? '-' + tReturnsSum.toLocaleString() : '0'}</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 45px minmax(90px, auto); gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #444; align-items: center;">
+                        <div style="font-size: 13px; font-weight: 700; color: #fff;">${ui.net}</div>
+                        <div style="text-align: right; font-size: 12px; font-weight: bold; color: #777;">${tSalesQty - tReturnsQty}</div>
+                        <div style="text-align: right; font-size: 15px; font-weight: 900; color: #fff; white-space: nowrap;">${(tSalesSum - tReturnsSum).toLocaleString()} ₸</div>
+                    </div>`;
             } else {
                 searchInput.parentElement.style.display = 'none'; 
                 
@@ -1113,7 +1085,6 @@ sortedItems.forEach(item => {
 
         function closeReport() { document.getElementById('report-modal').style.display = 'none'; }
 
-    // --- ДИНАМИЧЕСКАЯ ВЕРСИЯ ИЗ SW ---
         function displayAppVersion() {
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                 const messageChannel = new MessageChannel();
@@ -1139,7 +1110,7 @@ sortedItems.forEach(item => {
         }
 
         window.addEventListener('load', () => {
-            checkBlockTimer(); // <-- ВСТАВИТЬ ЭТУ СТРОКУ СЮДА
+            checkBlockTimer(); 
             applyLanguage(currentLang); 
             updateQueueCounter();
             document.getElementById('login-screen').style.display = 'flex';
@@ -1147,7 +1118,6 @@ sortedItems.forEach(item => {
             load();
         });
 
-        // --- ЛОГИКА ФОТО ---
         let selectedItemId = null, tempBase64 = null; 
         function openItemMenu(id) {
             selectedItemId = id; tempBase64 = null; 
@@ -1242,10 +1212,9 @@ sortedItems.forEach(item => {
         
         // --- МОДУЛЬ УМНОЙ ПРИЕМКИ (ИНВОЙСЫ) ---
         let parsedInvoiceData = [];
-        let currentFileBase64 = "";  // Сюда сохраним закодированный файл
-        let currentFileName = "";    // Сюда сохраним имя файла
+        let currentFileBase64 = "";  
+        let currentFileName = "";    
 
-        // === ВСТАВЛЯЕМ НАШ НОВЫЙ КОД СЮДА ===
         function toggleDropdown() {
             const list = document.getElementById('dropdownList');
             const header = document.getElementById('dropdownHeader');
@@ -1294,10 +1263,7 @@ sortedItems.forEach(item => {
                 containerBox.style.color = '#aaa';
             }
         }
-        // === КОНЕЦ НОВОГО КОДА ===
 
-
-        // Дальше идет ваша старая функция (я добавил в нее одну строчку для сброса кнопки при закрытии окна)
         function toggleIncomeModule() {
             const modal = document.getElementById('income-modal');
             if (modal.style.display === 'none' || modal.style.display === '') {
@@ -1305,11 +1271,13 @@ sortedItems.forEach(item => {
             } else {
                 modal.style.display = 'none';
                 document.getElementById('invoicePreviewArea').style.display = 'none';
-                document.getElementById('parseInvoiceBtn').style.display = 'block'; // Возвращаем кнопку
+                document.getElementById('debug-container').style.display = 'none';
+                document.getElementById('debug-container').innerHTML = '';
+                document.getElementById('parseInvoiceBtn').style.display = 'block'; 
                 
                 const fileInput = document.getElementById('invoiceFileInput');
                 fileInput.value = '';
-                updateFileNameCompactUI(fileInput); // Сбрасываем зеленую кнопку обратно в серую
+                updateFileNameCompactUI(fileInput); 
                 
                 parsedInvoiceData = [];
             }
@@ -1320,18 +1288,14 @@ sortedItems.forEach(item => {
             if (!fileInput.files.length) return alert("Пожалуйста, выберите файл!");
 
             const file = fileInput.files[0];
-            
-            // --- НАЧАЛО НОВОГО БЛОКА ДЛЯ GOOGLE ДИСКА ---
             currentFileName = file.name;
             const b64Reader = new FileReader();
             b64Reader.onload = function(evt) {
                 currentFileBase64 = evt.target.result; 
             };
             b64Reader.readAsDataURL(file);
-            // --- КОНЕЦ НОВОГО БЛОКА ---
 
             const reader = new FileReader();
-
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
                 
@@ -1339,12 +1303,26 @@ sortedItems.forEach(item => {
                     const workbook = XLSX.read(data, {type: 'array'});
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
-                    
                     const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
                     let doc_no = 'UNKNOWN', supplier = 'UNKNOWN';
                     let headerRowIdx = -1;
                     let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
+
+                    // УЛУЧШЕННАЯ ЗАЩИТА: убиваем ВСЕ пробелы и переносы строк
+                    function isSynonym(cellValue, targetKey) {
+                        if (!cellValue) return false;
+                        // Удаляем пробелы, переносы строк, табы для 100% совпадения
+                        const cleanCell = String(cellValue).replace(/\s+/g, '').toLowerCase();
+                        const cleanTarget = targetKey.replace(/\s+/g, '').toLowerCase();
+                        if (cleanCell === cleanTarget) return true;
+                        
+                        const synonymsList = invoiceSynonyms[targetKey] || [];
+                        return synonymsList.some(syn => {
+                            const cleanSyn = syn.replace(/\s+/g, '').toLowerCase();
+                            return cleanSyn !== "" && cleanCell.includes(cleanSyn);
+                        });
+                    }
 
                     for (let i = 0; i < Math.min(30, rows.length); i++) {
                         const row = rows[i] || [];
@@ -1352,37 +1330,20 @@ sortedItems.forEach(item => {
 
                         for (let j = 0; j < row.length; j++) {
                             const cellValue = String(row[j] || '').toUpperCase().trim();
-                            
-                            // Умный поиск контракта (ищем первое непустое значение правее)
                             if (cellValue.includes('CONTRACT NO')) {
                                 for (let k = j + 1; k < row.length; k++) {
                                     if (row[k] && String(row[k]).trim() !== '') {
-                                        doc_no = String(row[k]).trim();
-                                        break;
+                                        doc_no = String(row[k]).trim(); break;
                                     }
                                 }
                             }
-                            
-                            // Умный поиск поставщика (ищем первое непустое значение правее)
                             if (cellValue.includes('THE SELLER') || cellValue.includes('VENDOR')) {
                                 for (let k = j + 1; k < row.length; k++) {
                                     if (row[k] && String(row[k]).trim() !== '') {
-                                        supplier = String(row[k]).trim();
-                                        // Очищаем от лишних кавычек, если они есть
-                                        supplier = supplier.replace(/^"|"$/g, '');
-                                        break;
+                                        supplier = String(row[k]).trim().replace(/^"|"$/g, ''); break;
                                     }
                                 }
                             }
-                        }
-
-                        // Функция сопоставления заголовка с базой синонимов
-                        function isSynonym(cellValue, targetKey) {
-                            if (!cellValue) return false;
-                            const cleanCell = String(cellValue).trim().toLowerCase();
-                            if (cleanCell === targetKey.toLowerCase()) return true;
-                            const synonymsList = invoiceSynonyms[targetKey] || [];
-                            return synonymsList.some(syn => syn.trim() !== "" && cleanCell.includes(syn.trim()));
                         }
 
                         let cIdx = row.findIndex(c => isSynonym(c, 'id'));
@@ -1398,8 +1359,32 @@ sortedItems.forEach(item => {
                         }
                     }
 
-                    if (headerRowIdx === -1) return alert("❌ Не удалось найти заголовки таблицы (Code, Quantity, Price).");
+                    // --- РЕНТГЕН: ЕСЛИ ОШИБКА, ПОКАЗЫВАЕМ ВНУТРЕННОСТИ ФАЙЛА НА ЭКРАН ---
+                    if (headerRowIdx === -1) {
+                        let debugHtml = `<div style="color: #e74c3c; font-weight: bold; margin-bottom: 10px; font-size: 16px;">❌ Заголовки не найдены!</div>`;
+                        debugHtml += `<div style="font-size: 11px; color: #aaa; margin-bottom: 5px;">Мы искали (очищенные от пробелов):</div>`;
+                        debugHtml += `<div style="font-size: 11px; color: #f1c40f; margin-bottom: 10px; word-break: break-all;">ID: ${(invoiceSynonyms['id']||[]).join(', ')}<br>QTY: ${(invoiceSynonyms['qty']||[]).join(', ')}<br>PRICE: ${(invoiceSynonyms['price']||[]).join(', ')}</div>`;
+                        debugHtml += `<div style="font-size: 11px; color: #aaa; margin-bottom: 5px;">Рентген первых 15 строк Excel:</div>`;
+                        debugHtml += `<div style="overflow-x: auto; font-size: 10px; border: 1px solid #444; background: #000; padding: 5px;"><table style="border-collapse: collapse; width: 100%;">`;
+                        
+                        for (let r = 0; r < Math.min(15, rows.length); r++) {
+                            debugHtml += `<tr><td style="color:#666; border-right: 1px solid #333; padding: 2px 5px;">${r+1}</td>`;
+                            (rows[r] || []).forEach(c => {
+                                let cellVal = String(c || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                debugHtml += `<td style="border: 1px solid #333; padding: 4px; white-space: nowrap; color: #ccc;">${cellVal}</td>`;
+                            });
+                            debugHtml += `</tr>`;
+                        }
+                        debugHtml += `</table></div>`;
+                        
+                        document.getElementById('debug-container').innerHTML = debugHtml;
+                        document.getElementById('debug-container').style.display = 'flex';
+                        document.getElementById('invoicePreviewArea').style.display = 'none';
+                        document.getElementById('parseInvoiceBtn').style.display = 'none';
+                        return;
+                    }
 
+                    document.getElementById('debug-container').style.display = 'none';
                     parsedInvoiceData = [];
                     for (let i = headerRowIdx + 1; i < rows.length; i++) {
                         const row = rows[i];
@@ -1407,7 +1392,6 @@ sortedItems.forEach(item => {
                         
                         const codeCell = String(row[colMap.code] || '').trim();
                         if (!codeCell) continue;
-                        
                         if (codeCell.toUpperCase().includes('TOTAL') || codeCell.toUpperCase().includes('NOTE')) break;
 
                         let qty = parseFloat(row[colMap.qty]);
@@ -1415,30 +1399,22 @@ sortedItems.forEach(item => {
                         
                         let brandStr = colMap.brand !== -1 ? String(row[colMap.brand] || '').trim() : '';
                         let descStr = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
-                        let fullName = `${brandStr} ${descStr}`.trim();
-                        if (!fullName) fullName = 'Без названия';
+                        let fullName = `${brandStr} ${descStr}`.trim() || 'Без названия';
 
                         if (!isNaN(qty) && !isNaN(price)) {
                             parsedInvoiceData.push({
-                                doc_no: doc_no,
-                                supplier: supplier,
-                                item_id: codeCell,
-                                item_name: fullName,
-                                qty: qty,
-                                cost: price,
+                                doc_no: doc_no, supplier: supplier, item_id: codeCell,
+                                item_name: fullName, qty: qty, cost: price,
                                 staff_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.uid : 'Auto-Import' 
                             });
                         }
                     }
 
                     const labels = translations[currentLang];
-                    const labelStyle = 'color: #888; font-weight: normal;';
-                    const dataStyle = 'color: #f1c40f; font-weight: bold;';
-
                     document.getElementById('invoiceMetadata').innerHTML = `
-                        <span style="${labelStyle}">${labels.income_meta_supplier}:</span> <span style="${dataStyle}">${supplier}</span> | 
-                        <span style="${labelStyle}">${labels.income_meta_doc}:</span> <span style="${dataStyle}">${doc_no}</span> | 
-                        <span style="${labelStyle}">${labels.income_meta_items}:</span> <span style="${dataStyle}">${parsedInvoiceData.length}</span>
+                        <span style="color: #888; font-weight: normal;">${labels.income_meta_supplier}:</span> <span style="color: #f1c40f; font-weight: bold;">${supplier}</span> | 
+                        <span style="color: #888; font-weight: normal;">${labels.income_meta_doc}:</span> <span style="color: #f1c40f; font-weight: bold;">${doc_no}</span> | 
+                        <span style="color: #888; font-weight: normal;">${labels.income_meta_items}:</span> <span style="color: #f1c40f; font-weight: bold;">${parsedInvoiceData.length}</span>
                     `;
 
                     const tbody = document.getElementById('invoiceTableBody');
@@ -1453,7 +1429,7 @@ sortedItems.forEach(item => {
                             </tr>`;
                     });
                     document.getElementById('invoicePreviewArea').style.display = 'flex';
-                    document.getElementById('parseInvoiceBtn').style.display = 'none'; // Прячем кнопку
+                    document.getElementById('parseInvoiceBtn').style.display = 'none';
 
                 } catch (error) {
                     console.error(error);
@@ -1466,25 +1442,16 @@ sortedItems.forEach(item => {
 
         function sendInvoiceToBackend() {
             if (parsedInvoiceData.length === 0) return alert("Корзина пуста!");
-            
-            const rateInput = document.getElementById('exchangeRate');
-            const rate = rateInput ? (parseFloat(rateInput.value) || 1) : 1;
-
             const btn = document.getElementById('sendInvoiceBtn');
             const statusContainer = document.getElementById('status-container');
             const statusBar = document.getElementById('status-bar');
             const statusText = document.getElementById('status-text');
             const statusPercent = document.getElementById('status-percent');
 
-            btn.disabled = true;
-            btn.style.opacity = '0.5';
+            btn.disabled = true; btn.style.opacity = '0.5';
             statusContainer.style.display = 'block';
-            
             statusText.innerText = "Связь с сервером...";
-            statusBar.style.width = '10%';
-            statusPercent.innerText = '10%';
-
-            const selectedCurrency = document.getElementById('invoiceCurrency').value;
+            statusBar.style.width = '10%'; statusPercent.innerText = '10%';
 
             fetch(APPS_SCRIPT_URL, {
                 method: 'POST',
@@ -1493,36 +1460,21 @@ sortedItems.forEach(item => {
                     data: parsedInvoiceData,
                     fileBase64: currentFileBase64,
                     fileName: currentFileName,
-                    currency: selectedCurrency // Передаем выбранную валюту на бэкенд
+                    currency: document.getElementById('invoiceCurrency').value
                 })
-            })
-            .then(r => r.json())
-            .then(res => {
-                statusBar.style.width = '100%';
-                statusPercent.innerText = '100%';
-                
+            }).then(r => r.json()).then(res => {
+                statusBar.style.width = '100%'; statusPercent.innerText = '100%';
                 if (res.success) {
                     statusText.innerText = "Готово! Склад обновлен.";
-                    setTimeout(() => {
-                        alert("✅ Накладная успешно проведена!");
-                        toggleIncomeModule();
-                        if (typeof load === 'function') load(); 
-                    }, 500);
+                    setTimeout(() => { alert("✅ Накладная успешно проведена!"); toggleIncomeModule(); if (typeof load === 'function') load(); }, 500);
                 } else {
-                    statusText.innerText = "Ошибка сервера";
-                    statusText.style.color = "#e74c3c";
+                    statusText.innerText = "Ошибка сервера"; statusText.style.color = "#e74c3c";
                     alert("❌ Ошибка сервера: " + res.error);
                 }
-            })
-            .catch(err => {
-                statusText.innerText = "Ошибка сети";
-                statusText.style.color = "#e74c3c";
+            }).catch(err => {
+                statusText.innerText = "Ошибка сети"; statusText.style.color = "#e74c3c";
                 alert("❌ Ошибка сети: " + err);
-            })
-            .finally(() => {
-                btn.disabled = false;
-                btn.style.opacity = '1';
-            });
+            }).finally(() => { btn.disabled = false; btn.style.opacity = '1'; });
         }
     </script>
 
@@ -1558,7 +1510,10 @@ sortedItems.forEach(item => {
                 </div>
             </div>
             
-<button id="parseInvoiceBtn" onclick="processInvoiceFile()" style="background: #1a3a20; color: #2ecc71; border: 1px solid #2ecc71; padding: 12px 15px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; font-size: 14px;" data-i18n="income_parse">РАСПОЗНАТЬ ФАЙЛ</button>            
+            <button id="parseInvoiceBtn" onclick="processInvoiceFile()" style="background: #1a3a20; color: #2ecc71; border: 1px solid #2ecc71; padding: 12px 15px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; font-size: 14px;" data-i18n="income_parse">РАСПОЗНАТЬ ФАЙЛ</button>            
+            
+            <div id="debug-container" style="display: none; margin-top: 15px; flex-direction: column; overflow-y: auto; max-height: 50vh;"></div>
+
             <div id="invoicePreviewArea" style="display: none; margin-top: 20px; flex-direction: column; overflow: hidden;">
                 <div id="invoiceMetadata" style="margin-bottom: 10px; font-weight: bold; color: #f1c40f; font-size: 13px; text-align: center;"></div>
                 <div style="overflow-y: auto; border: 1px solid #333; margin-bottom: 15px; flex-grow: 1;">
@@ -1589,7 +1544,7 @@ sortedItems.forEach(item => {
                     ✅ ОПРИХОДОВАТЬ НА СКЛАД
                 </button>
             </div>
-            </div>
         </div>
-    </body>
+    </div>
+</body>
 </html>
