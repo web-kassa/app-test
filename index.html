@@ -1316,22 +1316,41 @@
                         const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
                         if (!rows || rows.length === 0) return;
 
+                        // 1. Ищем поставщика
                         if (file_supplier === 'UNKNOWN') {
                             let foundSupplier = false;
-                            for (let i = 0; i < Math.min(8, rows.length); i++) {
+                            
+                            // ЭТАП А: Сначала ищем по четким маркерам (The Seller) во всех верхних строках
+                            for (let i = 0; i < Math.min(10, rows.length); i++) {
                                 let row = rows[i];
                                 if (!row) continue;
                                 for (let j = 0; j < row.length; j++) {
                                     let cellVal = String(row[j] || "").toLowerCase();
                                     if (markers.some(m => cellVal.includes(m.toLowerCase()))) {
-                                        if (row[j+1]) { file_supplier = String(row[j+1]).trim().replace(/^"|"$/g, ''); foundSupplier = true; break; }
+                                        // Нашли маркер! Ищем ближайшую непустую ячейку справа от него
+                                        for (let k = j + 1; k < row.length; k++) {
+                                            if (row[k] && String(row[k]).trim() !== '') {
+                                                file_supplier = String(row[k]).trim().replace(/^"|"$/g, ''); 
+                                                foundSupplier = true; 
+                                                break;
+                                            }
+                                        }
                                     }
+                                    if (foundSupplier) break;
                                 }
                                 if (foundSupplier) break;
-                                let text = String(row[0] || "").trim();
-                                if (text && !excludes.some(ex => text.toLowerCase().includes(ex.toLowerCase()))) {
-                                    file_supplier = text.replace(/^"|"$/g, '');
-                                    foundSupplier = true; break;
+                            }
+
+                            // ЭТАП Б: Если маркеров нет вообще, берем первую чистую строку (Fallback)
+                            if (!foundSupplier) {
+                                for (let i = 0; i < Math.min(8, rows.length); i++) {
+                                    let row = rows[i];
+                                    if (!row) continue;
+                                    let text = String(row[0] || "").trim();
+                                    if (text && !excludes.some(ex => text.toLowerCase().includes(ex.toLowerCase()))) {
+                                        file_supplier = text.replace(/^"|"$/g, '');
+                                        break;
+                                    }
                                 }
                             }
                         }
