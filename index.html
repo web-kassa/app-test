@@ -1282,7 +1282,6 @@
             const fileInput = document.getElementById('invoiceFileInput');
             if (!fileInput.files.length) return alert("Пожалуйста, выберите файл!");
 
-            let doc_no = 'UNKNOWN', supplier = 'UNKNOWN';
             parsedInvoiceData = []; 
             masterWorkbook = XLSX.utils.book_new(); 
 
@@ -1296,6 +1295,7 @@
                 return synonymsList.some(syn => syn !== "" && cleanCell.includes(syn));
             }
 
+            // Перебираем каждый загруженный файл
             for (let file of fileInput.files) {
                 const dataPromise = new Promise((resolve) => {
                     const reader = new FileReader();
@@ -1306,8 +1306,10 @@
                 const arrayBuffer = await dataPromise;
                 try {
                     const workbook = XLSX.read(arrayBuffer, {type: 'array'});
-                    
                     const shortFileName = file.name.replace(/\.[^/.]+$/, "");
+
+                    let file_doc_no = 'UNKNOWN';
+                    let file_supplier = 'UNKNOWN';
 
                     workbook.SheetNames.forEach((sheetName) => {
                         const worksheet = workbook.Sheets[sheetName];
@@ -1320,7 +1322,7 @@
                         }
                         XLSX.utils.book_append_sheet(masterWorkbook, worksheet, newSheetName);
 
-                        if (supplier === 'UNKNOWN') {
+                        if (file_supplier === 'UNKNOWN') {
                             let foundSupplier = false;
                             for (let i = 0; i < Math.min(8, rows.length); i++) {
                                 let row = rows[i];
@@ -1328,13 +1330,13 @@
                                 for (let j = 0; j < row.length; j++) {
                                     let cellVal = String(row[j] || "").toLowerCase();
                                     if (markers.some(m => cellVal.includes(m.toLowerCase()))) {
-                                        if (row[j+1]) { supplier = String(row[j+1]).trim().replace(/^"|"$/g, ''); foundSupplier = true; break; }
+                                        if (row[j+1]) { file_supplier = String(row[j+1]).trim().replace(/^"|"$/g, ''); foundSupplier = true; break; }
                                     }
                                 }
                                 if (foundSupplier) break;
                                 let text = String(row[0] || "").trim();
                                 if (text && !excludes.some(ex => text.toLowerCase().includes(ex.toLowerCase()))) {
-                                    supplier = text.replace(/^"|"$/g, '');
+                                    file_supplier = text.replace(/^"|"$/g, '');
                                     foundSupplier = true; break;
                                 }
                             }
@@ -1347,10 +1349,10 @@
                             const row = rows[i] || [];
                             if (row.length === 0) continue;
 
-                            if (doc_no === 'UNKNOWN') {
+                            if (file_doc_no === 'UNKNOWN') {
                                 for (let j = 0; j < row.length; j++) {
                                     if (isSynonym(row[j], 'invoice_no')) {
-                                        doc_no = String(row[j+1] || 'UNKNOWN').trim();
+                                        file_doc_no = String(row[j+1] || 'UNKNOWN').trim();
                                     }
                                 }
                             }
@@ -1383,8 +1385,12 @@
                                 
                                 if (!isNaN(qty) && !isNaN(price)) {
                                     parsedInvoiceData.push({
-                                        doc_no: doc_no, supplier: supplier, item_id: codeCell,
-                                        item_name: `${brandStr} ${descStr}`.trim(), qty: qty, cost: price,
+                                        doc_no: file_doc_no, 
+                                        supplier: file_supplier, 
+                                        item_id: codeCell,
+                                        item_name: `${brandStr} ${descStr}`.trim(), 
+                                        qty: qty, 
+                                        cost: price,
                                         staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
                                     });
                                 }
@@ -1403,14 +1409,27 @@
                 return;
             }
 
-            currentFileName = `${doc_no}.xlsx`;
+            // Получаем уникальные номера инвойсов и поставщиков из всех файлов
+            const uniqueDocs = [...new Set(parsedInvoiceData.map(i => i.doc_no))];
+            const uniqueSuppliers = [...new Set(parsedInvoiceData.map(i => i.supplier))];
 
-            document.getElementById('invoiceMetadata').innerHTML = `Поставщик: <b style="color:#f1c40f;">${supplier}</b> | Документ: <input type="text" id="ui-doc-no" value="${doc_no}" style="background:#222; color:#f1c40f; border:1px dashed #555; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:13px; width: 140px; outline:none;" title="Можно редактировать"> | Позиций (все файлы): ${parsedInvoiceData.length}`;
+            // Если инвойс один - даем возможность его редактировать. Если разные - показываем списком
+            let docUiHtml = '';
+            if (uniqueDocs.length === 1) {
+                docUiHtml = `<input type="text" id="ui-doc-no" value="${uniqueDocs[0]}" style="background:#222; color:#f1c40f; border:1px dashed #555; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:13px; width: 140px; outline:none;" title="Можно редактировать">`;
+            } else {
+                docUiHtml = `<span style="color:#f1c40f; font-weight:bold;">${uniqueDocs.join(', ')}</span>`;
+            }
+
+            document.getElementById('invoiceMetadata').innerHTML = `Поставщик: <b style="color:#f1c40f;">${uniqueSuppliers.join(', ')}</b> | Документ: ${docUiHtml} | Позиций (все файлы): ${parsedInvoiceData.length}`;
             
             document.getElementById('invoiceTableBody').innerHTML = parsedInvoiceData.map(item => `
                 <tr style="border-bottom:1px solid #333;">
                     <td style="padding:5px;">${item.item_id}</td>
-                    <td style="padding:5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">${item.item_name}</td>
+                    <td style="padding:5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
+                        ${item.item_name}
+                        ${uniqueDocs.length > 1 ? `<br><span style="font-size:9px; color:#888;">[Инвойс: ${item.doc_no}]</span>` : ''}
+                    </td>
                     <td style="padding:5px;">${item.qty}</td>
                     <td style="padding:5px;">$${item.cost}</td>
                 </tr>`).join('');
@@ -1422,10 +1441,18 @@
         function sendInvoiceToBackend() {
             if (parsedInvoiceData.length === 0) return alert("Корзина пуста!");
 
-            const finalDocNo = document.getElementById('ui-doc-no').value.trim();
-            if (!finalDocNo) return alert("Номер документа не может быть пустым!");
-            parsedInvoiceData.forEach(item => item.doc_no = finalDocNo);
-            currentFileName = `${finalDocNo}.xlsx`;
+            // Если поле редактирования инвойса существует (значит все товары из одного инвойса) - обновляем их
+            const docInput = document.getElementById('ui-doc-no');
+            if (docInput) {
+                const finalDocNo = docInput.value.trim();
+                if (!finalDocNo) return alert("Номер документа не может быть пустым!");
+                parsedInvoiceData.forEach(item => item.doc_no = finalDocNo);
+                currentFileName = `${finalDocNo}.xlsx`;
+            } else {
+                // Если инвойсов несколько, формируем общее имя файла
+                const uniqueDocs = [...new Set(parsedInvoiceData.map(i => i.doc_no))];
+                currentFileName = `MULTI_${uniqueDocs.join('_').substring(0, 30)}.xlsx`;
+            }
 
             const btn = document.getElementById('sendInvoiceBtn');
             const statusContainer = document.getElementById('status-container');
