@@ -1206,9 +1206,7 @@
         
         // --- МОДУЛЬ УМНОЙ ПРИЕМКИ (ИНВОЙСЫ) ---
         let parsedInvoiceData = [];
-        let currentFileBase64 = "";  
-        let currentFileName = "";    
-        let invoiceGroups = {}; // ДОБАВЛЕНО: Группировка листов по инвойсам
+        let invoiceGroups = {}; // Группировка оригинальных файлов по инвойсам
 
         function toggleDropdown() {
             const list = document.getElementById('dropdownList');
@@ -1220,11 +1218,9 @@
         function selectCurrency(value) {
             document.getElementById('dropdownSelectedCode').innerText = value;
             document.getElementById('invoiceCurrency').value = value;
-            
             const items = document.querySelectorAll('.currency-minimal-item');
             items.forEach(item => item.classList.remove('selected'));
             event.target.classList.add('selected');
-
             document.getElementById('dropdownList').classList.remove('show');
             document.getElementById('dropdownHeader').classList.remove('active');
         }
@@ -1241,7 +1237,6 @@
         function updateFileNameCompactUI(input) {
             const fileNameText = document.getElementById('fileNameTextCompact');
             const containerBox = document.getElementById('fileInputLabel');
-            
             if (input.files && input.files.length > 0) {
                 fileNameText.innerText = input.files.length > 1 ? "Выбрано файлов: " + input.files.length : input.files[0].name;
                 fileNameText.classList.remove('file-placeholder-text');
@@ -1273,7 +1268,6 @@
                 const fileInput = document.getElementById('invoiceFileInput');
                 fileInput.value = '';
                 updateFileNameCompactUI(fileInput); 
-                
                 parsedInvoiceData = [];
             }
         }
@@ -1283,7 +1277,7 @@
             if (!fileInput.files.length) return alert("Пожалуйста, выберите файл!");
 
             parsedInvoiceData = []; 
-            invoiceGroups = {}; // Очищаем группы перед новой загрузкой
+            invoiceGroups = {}; 
 
             const markers = (invoiceSynonyms['supplier_keywords'] || ["the seller", "vendor", "supplier", "поставщик"]);
             const excludes = (invoiceSynonyms['exclude'] || ["commercial invoice", "packing list", "invoice", "specification"]);
@@ -1295,8 +1289,15 @@
                 return synonymsList.some(syn => syn !== "" && cleanCell.includes(syn));
             }
 
-            // Перебираем каждый загруженный файл
             for (let file of fileInput.files) {
+                // Читаем оригинал файла в Base64 для отправки на сервер
+                const b64Promise = new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+                const originalBase64 = await b64Promise;
+
                 const dataPromise = new Promise((resolve) => {
                     const reader = new FileReader();
                     reader.onload = (e) => resolve(new Uint8Array(e.target.result));
@@ -1306,8 +1307,7 @@
                 const arrayBuffer = await dataPromise;
                 try {
                     const workbook = XLSX.read(arrayBuffer, {type: 'array'});
-                    const shortFileName = file.name.replace(/\.[^/.]+$/, "");
-
+                    
                     let file_doc_no = 'UNKNOWN';
                     let file_supplier = 'UNKNOWN';
 
@@ -1316,7 +1316,6 @@
                         const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
                         if (!rows || rows.length === 0) return;
 
-                        // 1. Ищем поставщика
                         if (file_supplier === 'UNKNOWN') {
                             let foundSupplier = false;
                             for (let i = 0; i < Math.min(8, rows.length); i++) {
@@ -1337,7 +1336,6 @@
                             }
                         }
 
-                        // 2. Ищем заголовки таблицы и номер инвойса
                         let headerRowIdx = -1;
                         let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
 
@@ -1366,23 +1364,14 @@
                             }
                         }
 
-                        // --- ГРУППИРОВКА ЛИСТОВ ПО НОМЕРУ ИНВОЙСА ---
                         if (!invoiceGroups[file_doc_no]) {
                             invoiceGroups[file_doc_no] = {
                                 supplier: file_supplier,
                                 items: [],
-                                workbook: XLSX.utils.book_new()
+                                originalFiles: []
                             };
                         }
 
-                        let newSheetName = `${shortFileName}_${sheetName}`.substring(0, 31);
-                        if (invoiceGroups[file_doc_no].workbook.SheetNames.includes(newSheetName)) {
-                            newSheetName = `${shortFileName}_${Math.random().toString(36).substring(7)}`.substring(0, 31);
-                        }
-                        XLSX.utils.book_append_sheet(invoiceGroups[file_doc_no].workbook, worksheet, newSheetName);
-                        // -------------------------------------------
-
-                        // 3. Собираем товары
                         if (headerRowIdx !== -1) {
                             for (let i = headerRowIdx + 1; i < rows.length; i++) {
                                 const row = rows[i];
@@ -1407,11 +1396,23 @@
                                         staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
                                     };
                                     parsedInvoiceData.push(itemData);
-                                    invoiceGroups[file_doc_no].items.push(itemData); // Записываем товар в нужную группу
+                                    invoiceGroups[file_doc_no].items.push(itemData);
                                 }
                             }
                         }
                     });
+                    
+                    // Сохраняем ОРИГИНАЛЬНЫЙ файл в группу (избегая дублирования)
+                    if (invoiceGroups[file_doc_no]) {
+                        const alreadyAdded = invoiceGroups[file_doc_no].originalFiles.some(f => f.fileName === file.name);
+                        if (!alreadyAdded) {
+                            invoiceGroups[file_doc_no].originalFiles.push({
+                                fileName: file.name,
+                                fileBase64: originalBase64
+                            });
+                        }
+                    }
+
                 } catch (err) {
                     console.error("Ошибка чтения файла: " + file.name, err);
                 }
@@ -1481,24 +1482,13 @@
             const totalSteps = Object.keys(invoiceGroups).length;
             let currentStep = 0;
 
-            // Отправляем каждый инвойс на сервер ОТДЕЛЬНЫМ запросом
+            // Отправляем каждый инвойс на сервер ОТДЕЛЬНЫМ запросом с ОРИГИНАЛАМИ
             for (let docNo of Object.keys(invoiceGroups)) {
                 currentStep++;
-                statusText.innerText = `Сборка файла ${currentStep} из ${totalSteps}...`;
-                
                 let group = invoiceGroups[docNo];
-                let b64Xlsx = "";
-                try {
-                    const b64 = XLSX.write(group.workbook, { bookType: 'xlsx', type: 'base64' });
-                    b64Xlsx = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + b64;
-                } catch (err) {
-                    alert(`Ошибка сборки книги Excel для ${docNo}: ` + err.message);
-                    btn.disabled = false; btn.style.opacity = '1';
-                    return;
-                }
 
                 statusText.innerText = `Отправка ${docNo}... (${currentStep}/${totalSteps})`;
-                let pct = Math.round((currentStep / totalSteps) * 100) - 10;
+                let pct = Math.round((currentStep / totalSteps) * 100);
                 statusBar.style.width = pct + '%'; statusPercent.innerText = pct + '%';
 
                 try {
@@ -1507,8 +1497,8 @@
                         body: JSON.stringify({ 
                             action: 'income', 
                             data: group.items,
-                            fileBase64: b64Xlsx,
-                            fileName: `${docNo}.xlsx`, // ФАЙЛ БУДЕТ НАЗВАН ПО НОМЕРУ ИНВОЙСА
+                            files: group.originalFiles, // МАССИВ ОРИГИНАЛЬНЫХ ФАЙЛОВ
+                            docNo: docNo, // Номер для имени папки
                             currency: document.getElementById('invoiceCurrency').value
                         })
                     });
@@ -1521,18 +1511,17 @@
                     statusText.innerText = "Ошибка сервера"; statusText.style.color = "#e74c3c";
                     alert(`❌ Ошибка при отправке инвойса ${docNo}: ` + err.message);
                     btn.disabled = false; btn.style.opacity = '1';
-                    return; // Прерываем отправку остальных при ошибке
+                    return;
                 }
             }
 
-            // Если цикл завершился без ошибок
             statusBar.style.width = '100%'; statusPercent.innerText = '100%';
-            statusText.innerText = "Готово! Склад обновлен.";
+            statusText.innerText = "Архив создан! Склад обновлен.";
             setTimeout(() => { 
-                alert("✅ Все накладные успешно проведены!"); 
+                alert("✅ Все накладные успешно проведены, оригиналы сохранены в папки!"); 
                 toggleIncomeModule(); 
                 if (typeof load === 'function') load(); 
-            }, 500);
+            }, 800);
             
             btn.disabled = false; btn.style.opacity = '1';
         }
