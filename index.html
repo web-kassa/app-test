@@ -1295,7 +1295,6 @@
                 let itemsInFile = 0;
                 let globalFoundHeader = false;
                 
-                // Переменные для отчета по поиску границ
                 let globalFirstDataRow = -1;
                 let globalHeaderRow = -1;
                 let globalColMap = null;
@@ -1325,7 +1324,6 @@
                         const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
                         if (!rows || rows.length === 0) continue;
 
-                        // 1. Поиск поставщика (сканируем верх)
                         if (file_supplier === 'UNKNOWN') {
                             for (let i = 0; i < Math.min(10, rows.length); i++) {
                                 let row = rows[i];
@@ -1354,7 +1352,6 @@
                             }
                         }
 
-                        // 2. Ищем номер инвойса
                         if (file_doc_no === 'UNKNOWN') {
                             for (let i = 0; i < Math.min(20, rows.length); i++) {
                                 let row = rows[i] || [];
@@ -1366,33 +1363,27 @@
                             }
                         }
 
-                        // --- 3. АЛГОРИТМ ГРАНИЦ: ПОИСК НАЧАЛА ДАННЫХ ---
-                        let maxCols = 0;
-                        for (let i = 0; i < Math.min(50, rows.length); i++) {
-                            let density = (rows[i] || []).filter(c => c !== undefined && c !== null && String(c).trim() !== '').length;
-                            if (density > maxCols) maxCols = density;
-                        }
-
+                        // --- 3. АЛГОРИТМ ГРАНИЦ: ПОИСК СТРОГО ПО ЧИСЛАМ ---
                         let firstDataRowIdx = -1;
                         for (let i = 0; i < Math.min(50, rows.length); i++) {
                             let row = rows[i] || [];
                             if (row.length === 0) continue;
 
-                            let density = row.filter(c => c !== undefined && c !== null && String(c).trim() !== '').length;
-                            // Считаем ячейки, которые похожи на числа (Цены, Количества)
                             let numCount = row.filter(c => {
-                                let val = String(c).trim();
-                                return val !== '' && !isNaN(parseFloat(val));
+                                let val = String(c).trim().replace(/,/g, '');
+                                return val !== '' && !isNaN(Number(val));
                             }).length;
 
-                            // Ядро таблицы = минимум 2 числа в строке + высокая плотность заполнения
-                            if (numCount >= 2 && density >= Math.max(3, maxCols - 3)) {
-                                firstDataRowIdx = i;
-                                break;
+                            if (numCount >= 2) {
+                                let firstCol = String(row[0] || '').toUpperCase();
+                                if (!firstCol.includes('TOTAL')) {
+                                    firstDataRowIdx = i;
+                                    break;
+                                }
                             }
                         }
 
-                        // --- 4. ЧИТАЕМ СТРОКУ СТРОГО НАД ДАННЫМИ ---
+                        // --- 4. ЧИТАЕМ СТРОГО ОДНУ СТРОКУ НАД ДАННЫМИ ---
                         let headerRowIdx = -1;
                         let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
                         let foundHeaderInFile = false;
@@ -1400,24 +1391,20 @@
                         if (firstDataRowIdx > 0) {
                             headerRowIdx = firstDataRowIdx - 1;
                             
-                            // Если строка прямо над данными пустая, берем еще на одну выше
-                            let hrDensity = (rows[headerRowIdx] || []).filter(c => c !== undefined && c !== null && String(c).trim() !== '').length;
-                            if (hrDensity === 0 && headerRowIdx > 0) {
-                                headerRowIdx--; 
-                            }
-
-                            const headerRow = rows[headerRowIdx] || [];
+                            let headerRow = rows[headerRowIdx] || [];
+                            
                             for (let j = 0; j < headerRow.length; j++) {
-                                if (colMap.code === -1 && isSynonym(headerRow[j], 'id')) colMap.code = j;
-                                if (colMap.qty === -1 && isSynonym(headerRow[j], 'qty')) colMap.qty = j;
-                                if (colMap.price === -1 && isSynonym(headerRow[j], 'price')) colMap.price = j;
-                                if (colMap.brand === -1 && isSynonym(headerRow[j], 'brand')) colMap.brand = j;
-                                if (colMap.desc === -1 && isSynonym(headerRow[j], 'name')) colMap.desc = j;
+                                let val = String(headerRow[j] || '').trim();
+                                
+                                if (colMap.code === -1 && isSynonym(val, 'id')) colMap.code = j;
+                                if (colMap.qty === -1 && isSynonym(val, 'qty')) colMap.qty = j;
+                                if (colMap.price === -1 && isSynonym(val, 'price')) colMap.price = j;
+                                if (colMap.brand === -1 && isSynonym(val, 'brand')) colMap.brand = j;
+                                if (colMap.desc === -1 && isSynonym(val, 'name')) colMap.desc = j;
                             }
 
-                            // Сохраняем результаты для вывода отчета
                             globalFirstDataRow = firstDataRowIdx;
-                            globalHeaderRow = headerRowIdx;
+                            globalHeaderRow = headerRowIdx; 
                             globalColMap = colMap;
 
                             if (colMap.code !== -1 && colMap.qty !== -1 && colMap.price !== -1) {
@@ -1437,7 +1424,7 @@
                                 if (!row || row.length === 0) continue;
                                 
                                 let codeCell = String(row[colMap.code] || '').trim();
-                                if (!codeCell || codeCell.toUpperCase().includes('TOTAL')) break; // Дошли до низа
+                                if (!codeCell || codeCell.toUpperCase().includes('TOTAL')) break;
 
                                 let qty = parseFloat(row[colMap.qty]);
                                 let price = parseFloat(row[colMap.price]);
@@ -1460,7 +1447,7 @@
                                 }
                             }
                         }
-                    } // конец цикла по листам
+                    } 
                     
                     if (invoiceGroups[file_doc_no]) {
                         const alreadyAdded = invoiceGroups[file_doc_no].originalFiles.some(f => f.fileName === file.name);
@@ -1482,14 +1469,13 @@
                 if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
                 
                 if (globalFirstDataRow === -1) {
-                    fileErrors.push("таблица с товарами не найдена (нет строк с цифрами)");
+                    fileErrors.push("таблица с товарами не найдена (нет строк с ценами и кол-вом)");
                 } else if (!globalFoundHeader) {
                     let missing = [];
                     if (globalColMap.code === -1) missing.push("«Код»");
                     if (globalColMap.qty === -1) missing.push("«Кол-во»");
                     if (globalColMap.price === -1) missing.push("«Цена»");
                     
-                    // Указываем номер строки, в которой мы искали шапку (Excel Row = Index + 1)
                     fileErrors.push(`в шапке (строка ${globalHeaderRow + 1}) не найдено: ${missing.join(', ')}`);
                 } else if (itemsInFile === 0) {
                     fileErrors.push("из таблицы не удалось извлечь товары");
