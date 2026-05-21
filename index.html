@@ -173,6 +173,30 @@
         /* --- КНОПКА SOFT SYNC --- */
         @keyframes spin-sync { 100% { transform: rotate(360deg); } }
         .sync-spin { animation: spin-sync 1s linear infinite; color: #2ecc71 !important; border-color: #2ecc71 !important; pointer-events: none; }
+    
+    /* === СВЕТЛАЯ ТЕМА (OVERRIDE) === */
+        body.light-theme { background-color: #f2f2f7; color: #000000; font-weight: bold; }
+        
+        /* Авторизация и шапка */
+        .light-theme #login-screen { background-color: #f2f2f7; }
+        .light-theme .app-header, .light-theme .top-bar { background-color: #ffffff; border-bottom: 1px solid #c6c6c8; }
+        
+        /* Каталог и Категории */
+        .light-theme .cat-bar { border-bottom: 1px solid #c6c6c8; background-color: #f2f2f7; }
+        .light-theme .cat-btn { background-color: #ffffff; color: #444444; border: 1px solid #c6c6c8; font-weight: bold; }
+        .light-theme .cat-btn.active { background-color: #d4ac0d; color: #000000; border-color: #d4ac0d; }
+        .light-theme .list-header { border-bottom: 1px solid #c6c6c8; color: #444444; }
+        .light-theme .c-item { border-bottom: 1px solid #c6c6c8; background-color: #ffffff; color: #000000; }
+        
+        /* Правая панель (корзина) и меню */
+        .light-theme #cart-container, .light-theme .cart-panel { background-color: #ffffff; border-left: 1px solid #c6c6c8; }
+        .light-theme #settings-menu { background-color: #ffffff; border: 1px solid #c6c6c8; color: #000000; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        
+        /* Инпуты и цифровой блок */
+        .light-theme input, .light-theme select { background-color: #ffffff; color: #000000; border: 1px solid #c6c6c8; font-weight: bold; }
+        .light-theme .numpad button { background-color: #ffffff; color: #000000; border: 1px solid #c6c6c8; font-weight: bold; }
+        .light-theme .modal, .light-theme .item-menu { background-color: #ffffff; border: 1px solid #c6c6c8; color: #000000; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .light-theme .modal-header { border-bottom: 1px solid #c6c6c8; }
     </style>
 </head>
 <body>
@@ -309,6 +333,9 @@
                 </button>
             </div>
             <button class="cancel-btn" style="width: 100%; margin-top: 10px;" onclick="closeSettings()" data-i18n="btn_close">ЗАКРЫТЬ</button>
+            <button onclick="toggleTheme()" style="width: 100%; padding: 12px; margin-top: 10px; background: transparent; color: inherit; border: 1px solid #888; border-radius: 8px; font-weight: bold; cursor: pointer;">
+        <span data-i18n="theme_toggle">СМЕНА ТЕМЫ</span> 🌓
+    </button>
         </div>
     </div>
 
@@ -394,7 +421,7 @@
     word_code: "«Код»", word_qty: "«Кол-во»", word_price: "«Цена»", login_title: "ВХОД", inc_err_sheet_missing: "[Лист {0}] стр. {1}: нет ",
     inc_err_sheet_no_table: "[Лист {0}]: нет таблицы с цифрами", cat_all: "Все",
     server_dup: "Накладная с номером {0} уже была проведена ранее.",
-    server_no_db: "База не привязана. Нажмите POS Setup -> Привязать базу."
+    server_no_db: "База не привязана. Нажмите POS Setup -> Привязать базу.", theme_toggle: "СМЕНА ТЕМЫ (ДЕНЬ/НОЧЬ)"
             },
             kz: {
                 btn_sale: "САТУ", btn_return: "ҚАЙТАРУ", search_placeholder: "ІЗДЕУ...",
@@ -442,7 +469,7 @@
     word_code: "«Код»", word_qty: "«Саны»", word_price: "«Бағасы»", login_title: "КІРУ", inc_err_sheet_missing: "[{0} парағы] {1}-жол: табылмады ",
     inc_err_sheet_no_table: "[{0} парағы]: цифрлары бар кесте жоқ", cat_all: "Барлығы",
     server_dup: "{0} нөмірлі жүкқұжат бұрын қабылданған.",
-    server_no_db: "Дерекқор байланыспаған. POS Setup -> Привязать базу түймесін басыңыз."
+    server_no_db: "Дерекқор байланыспаған. POS Setup -> Привязать базу түймесін басыңыз.", theme_toggle: "ТАҚЫРЫПТЫ АУЫСТЫРУ (КҮН/ТҮН)"
             }
         };
 
@@ -457,6 +484,18 @@
         let invoiceSynonyms = {};
 
         let currentCategory = 'all';
+
+        // Загружаем сохраненную тему при запуске
+        let currentTheme = localStorage.getItem('pos_theme') || 'dark';
+        if (currentTheme === 'light') {
+            document.body.classList.add('light-theme');
+        }
+
+        // Функция переключения
+        function toggleTheme() {
+            const isLight = document.body.classList.toggle('light-theme');
+            localStorage.setItem('pos_theme', isLight ? 'light' : 'dark');
+        }
 
         function renderCategories() {
             const categories = new Set();
