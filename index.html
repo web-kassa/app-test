@@ -361,7 +361,18 @@
                 income_meta_supplier: "Поставщик",
                 income_meta_doc: "Документ",
                 income_meta_items: "Позиций",
-                receive_btn: "ПРИЕМКА"
+                receive_btn: "ПРИЕМКА",
+                // --- АВТОРИЗАЦИЯ И ПРИЕМКА ---
+                pin_no_internet: "НЕТ ИНТЕРНЕТА", pin_checking: "ПРОВЕРКА...", pin_granted: "ДОСТУП РАЗРЕШЕН",
+                pin_wrong: "НЕВЕРНЫЙ ПИН-КОД", pin_wrong_left: "НЕВЕРНЫЙ ПИН. ОСТАЛОСЬ: ", pin_conn_error: "СБОЙ ПОДКЛЮЧЕНИЯ",
+                inc_select_file: "Пожалуйста, выберите файл!", inc_file_selected: "Выбрано файлов: ", inc_file_placeholder: "Нажмите для выбора Excel",
+                inc_err_no_doc: "нет номера инвойса", inc_err_no_sup: "нет поставщика", inc_err_no_table: "таблица с товарами не найдена",
+                inc_err_missing: "в шапке (строка {0}) не найдено: ", inc_err_no_items: "из таблицы не удалось извлечь товары",
+                inc_err_corrupted: "Файл поврежден", inc_success: "{0} поз. распознано", inc_err_doc_format: "ОШИБКА НОМЕРА",
+                inc_empty_cart: "Корзина пуста!", inc_doc_empty: "Номер документа не может быть пустым!",
+                inc_sending: "Отправка {0}...", inc_server_err: "Ошибка сервера", inc_send_err: "❌ Ошибка при отправке инвойса: ",
+                inc_archive_created: "Архив создан! Склад обновлен.", inc_all_done: "✅ Все накладные успешно проведены, оригиналы сохранены в папки!",
+                word_code: "«Код»", word_qty: "«Кол-во»", word_price: "«Цена»"
             },
             kz: {
                 btn_sale: "САТУ", btn_return: "ҚАЙТАРУ", search_placeholder: "ІЗДЕУ...",
@@ -395,7 +406,18 @@
                 income_meta_supplier: "Жеткізуші",
                 income_meta_doc: "Құжат",
                 income_meta_items: "Позициялар",
-                receive_btn: "ҚАБЫЛДАУ"
+                receive_btn: "ҚАБЫЛДАУ",
+                // --- АВТОРИЗАЦИЯ И ПРИЕМКА ---
+                pin_no_internet: "ИНТЕРНЕТ ЖОҚ", pin_checking: "БАЗАДАН ТЕКСЕРІЛУДЕ...", pin_granted: "РУҚСАТ БЕРІЛДІ",
+                pin_wrong: "ҚАТЕ ПИН-КОД", pin_wrong_left: "ҚАТЕ ПИН. ҚАЛДЫ: ", pin_conn_error: "ҚОСЫЛУ ҚАТЕСІ",
+                inc_select_file: "Файлды таңдаңыз!", inc_file_selected: "Таңдалған файлдар: ", inc_file_placeholder: "Excel файлын таңдау үшін басыңыз",
+                inc_err_no_doc: "инвойс нөмірі жоқ", inc_err_no_sup: "жеткізуші жоқ", inc_err_no_table: "тауарлар кестесі табылмады",
+                inc_err_missing: "бас жағында ({0}-жол) табылмады: ", inc_err_no_items: "кестеден тауарларды оқу мүмкін болмады",
+                inc_err_corrupted: "Файл зақымдалған", inc_success: "{0} поз. анықталды", inc_err_doc_format: "НӨМІР ҚАТЕСІ",
+                inc_empty_cart: "Себет бос!", inc_doc_empty: "Құжат нөмірі бос болмауы керек!",
+                inc_sending: "{0} жіберілуде...", inc_server_err: "Сервер қатесі", inc_send_err: "❌ Инвойсты жіберу қатесі: ",
+                inc_archive_created: "Мұрағат құрылды! Қойма жаңартылды.", inc_all_done: "✅ Барлық жүкқұжаттар сәтті өтті, түпнұсқалар сақталды!",
+                word_code: "«Код»", word_qty: "«Саны»", word_price: "«Бағасы»"
             }
         };
 
@@ -487,105 +509,38 @@
         }
 
         async function handleAutoLogin(val) {
-            if (blockUntil > Date.now()) {
-                clearPin();
-                return; 
-            }
-
+            if (blockUntil > Date.now()) { clearPin(); return; }
             const err = document.getElementById('login-error');
             const field = document.getElementById('pin-field');
             
-            // Быстрая проверка интернета
             if (!navigator.onLine) {
-                field.style.color = '#e74c3c'; 
-                field.classList.add('error-shake');
-                err.innerText = "НЕТ ИНТЕРНЕТА"; 
-                err.style.color = '#e74c3c'; 
-                err.style.visibility = 'visible';
-                setTimeout(() => { 
-                    field.classList.remove('error-shake'); 
-                    err.style.visibility = 'hidden'; 
-                    field.style.color = '#f1c40f'; 
-                    clearPin(); 
-                }, 1200);
+                field.style.color = '#e74c3c'; field.classList.add('error-shake');
+                err.innerText = translations[currentLang].pin_no_internet; 
+                err.style.color = '#e74c3c'; err.style.visibility = 'visible';
+                setTimeout(() => { field.classList.remove('error-shake'); err.style.visibility = 'hidden'; field.style.color = '#f1c40f'; clearPin(); }, 1200);
                 return;
             }
 
-            field.style.color = '#3498db'; 
-            err.innerText = "ПРОБИВАЕМ ПО БАЗЕ...";
-            err.style.color = '#3498db';
-            err.style.visibility = 'visible';
+            field.style.color = '#3498db'; err.innerText = translations[currentLang].pin_checking;
+            err.style.color = '#3498db'; err.style.visibility = 'visible';
 
             try {
-                const response = await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'verifyPin', pin: val })
-                });
-
-                // Читаем как текст, чтобы избежать падения на HTML-ошибках Google
+                const response = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'verifyPin', pin: val }) });
                 const textRes = await response.text(); 
-                let res;
-                try {
-                    res = JSON.parse(textRes);
-                } catch (e) {
-                    throw new Error("SERVER_ERROR");
-                }
+                let res = JSON.parse(textRes);
 
                 if (res.success) {
-                    failedAttempts = 0;
-                    localStorage.removeItem('pos_fails');
-                    localStorage.removeItem('pos_block');
-
-                    field.style.color = '#2ecc71'; 
-                    err.innerText = "ДОСТУП РАЗРЕШЕН";
-                    err.style.color = '#2ecc71';
-                    
-                    setTimeout(() => {
-                        login(res.user); 
-                        field.style.color = '#f1c40f';
-                        err.style.color = '#e74c3c';
-                        err.style.visibility = 'hidden';
-                        err.innerText = "НЕВЕРНЫЙ ПИН-КОД";
-                    }, 400);
-
-                } else {
-                    throw new Error("WRONG_PIN");
-                }
-
+                    failedAttempts = 0; localStorage.removeItem('pos_fails');
+                    field.style.color = '#2ecc71'; err.innerText = translations[currentLang].pin_granted; err.style.color = '#2ecc71';
+                    setTimeout(() => { login(res.user); field.style.color = '#f1c40f'; err.style.visibility = 'hidden'; }, 400);
+                } else { throw new Error("WRONG_PIN"); }
             } catch (error) {
-                console.error("Ошибка авторизации:", error);
-                
                 let isWrongPin = error.message === "WRONG_PIN";
-                
-                if (isWrongPin) {
-                    failedAttempts++;
-                    localStorage.setItem('pos_fails', failedAttempts);
-                }
-
-                if (failedAttempts >= 3) {
-                    blockUntil = Date.now() + 5 * 60 * 1000;
-                    localStorage.setItem('pos_block', blockUntil);
-                    field.classList.add('error-shake');
-                    setTimeout(() => { field.classList.remove('error-shake'); clearPin(); }, 800);
-                    checkBlockTimer(); 
-                    return;
-                }
-
-                field.style.color = '#e74c3c'; 
-                field.classList.add('error-shake');
-                
-                const attemptsLeft = Math.max(0, 3 - failedAttempts);
-                // Если ошибка сети - не пугаем юзера неверным пином
-                err.innerText = isWrongPin ? `НЕВЕРНЫЙ ПИН. ОСТАЛОСЬ: ${attemptsLeft}` : "СБОЙ ПОДКЛЮЧЕНИЯ";
-                err.style.color = '#e74c3c';
-                err.style.visibility = 'visible';
-
-                setTimeout(() => { 
-                    field.classList.remove('error-shake');
-                    err.style.visibility = 'hidden'; 
-                    field.style.color = '#f1c40f'; 
-                    clearPin();
-                }, 1200);
+                if (isWrongPin) { failedAttempts++; localStorage.setItem('pos_fails', failedAttempts); }
+                field.style.color = '#e74c3c'; field.classList.add('error-shake');
+                err.innerText = isWrongPin ? (translations[currentLang].pin_wrong_left + (3 - failedAttempts)) : translations[currentLang].pin_conn_error;
+                err.style.color = '#e74c3c'; err.style.visibility = 'visible';
+                setTimeout(() => { field.classList.remove('error-shake'); err.style.visibility = 'hidden'; field.style.color = '#f1c40f'; clearPin(); }, 1200);
             }
         }
 
@@ -1487,20 +1442,26 @@
                 }
 
                 // 6. ИТОГОВЫЙ ОТЧЕТ
-                if (file_doc_no === 'UNKNOWN') fileErrors.push("нет номера инвойса");
-                if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
+                if (file_doc_no === 'UNKNOWN') fileErrors.push(translations[currentLang].inc_err_no_doc);
+                if (file_supplier === 'UNKNOWN') fileErrors.push(translations[currentLang].inc_err_no_sup);
                 
-                // Если мы так и не смогли распарсить ни один лист - выводим подробный диагноз по всем листам
-                if (!fileParsedSuccessfully) {
-                    fileErrors.push(sheetErrorsList.join('<br>'));
+                if (globalFirstDataRow === -1) {
+                    fileErrors.push(translations[currentLang].inc_err_no_table);
+                } else if (!globalFoundHeader) {
+                    let missing = [];
+                    if (globalColMap.code === -1) missing.push(translations[currentLang].word_code);
+                    if (globalColMap.qty === -1) missing.push(translations[currentLang].word_qty);
+                    if (globalColMap.price === -1) missing.push(translations[currentLang].word_price);
+                    
+                    fileErrors.push(translations[currentLang].inc_err_missing.replace('{0}', globalHeaderRow + 1) + missing.join(', '));
                 } else if (itemsInFile === 0) {
-                    fileErrors.push("из таблицы не удалось извлечь товары");
+                    fileErrors.push(translations[currentLang].inc_err_no_items);
                 }
 
                 if (fileErrors.length > 0) {
-                    processingLogs.push(`<div style="color:#e74c3c; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #e74c3c; background:#1a1a1a;">⚠️ <b>${file.name}</b>:<br>${fileErrors.join('<br>')}</div>`);
+                    processingLogs.push(`<div style="color:#e74c3c; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #e74c3c; background:#1a1a1a;">⚠️ <b>${file.name}</b>: ${fileErrors.join(' | ')}</div>`);
                 } else {
-                    processingLogs.push(`<div style="color:#2ecc71; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #2ecc71; background:#1a1a1a;">✅ <b>${file.name}</b>: Распознано ${itemsInFile} поз.</div>`);
+                    processingLogs.push(`<div style="color:#2ecc71; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #2ecc71; background:#1a1a1a;">✅ <b>${file.name}</b>: ${translations[currentLang].inc_success.replace('{0}', itemsInFile)}</div>`);
                 }
             }
 
