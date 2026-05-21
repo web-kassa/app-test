@@ -372,7 +372,8 @@
     inc_empty_cart: "Корзина пуста!", inc_doc_empty: "Номер документа не может быть пустым!",
     inc_sending: "Отправка {0}...", inc_server_err: "Ошибка сервера", inc_send_err: "❌ Ошибка при отправке инвойса: ",
     inc_archive_created: "Архив создан! Склад обновлен.", inc_all_done: "✅ Все накладные успешно проведены!",
-    word_code: "«Код»", word_qty: "«Кол-во»", word_price: "«Цена»", login_title: "ВХОД"
+    word_code: "«Код»", word_qty: "«Кол-во»", word_price: "«Цена»", login_title: "ВХОД", inc_err_sheet_missing: "[Лист {0}] стр. {1}: нет ",
+    inc_err_sheet_no_table: "[Лист {0}]: нет таблицы с цифрами"
             },
             kz: {
                 btn_sale: "САТУ", btn_return: "ҚАЙТАРУ", search_placeholder: "ІЗДЕУ...",
@@ -417,7 +418,8 @@
     inc_empty_cart: "Себет бос!", inc_doc_empty: "Құжат нөмірі бос болмауы керек!",
     inc_sending: "{0} жіберілуде...", inc_server_err: "Сервер қатесі", inc_send_err: "❌ Инвойсты жіберу қатесі: ",
     inc_archive_created: "Мұрағат құрылды! Қойма жаңартылды.", inc_all_done: "✅ Барлық жүкқұжаттар сәтті өтті!",
-    word_code: "«Код»", word_qty: "«Саны»", word_price: "«Бағасы»", login_title: "КІРУ"
+    word_code: "«Код»", word_qty: "«Саны»", word_price: "«Бағасы»", login_title: "КІРУ", inc_err_sheet_missing: "[{0} парағы] {1}-жол: табылмады ",
+    inc_err_sheet_no_table: "[{0} парағы]: цифрлары бар кесте жоқ"
             }
         };
 
@@ -517,24 +519,18 @@
             const err = document.getElementById('login-error');
             const field = document.getElementById('pin-field');
             
-            // Быстрая проверка интернета
             if (!navigator.onLine) {
                 field.style.color = '#e74c3c'; 
                 field.classList.add('error-shake');
-                err.innerText = "НЕТ ИНТЕРНЕТА"; 
+                err.innerText = translations[currentLang].pin_no_internet; 
                 err.style.color = '#e74c3c'; 
                 err.style.visibility = 'visible';
-                setTimeout(() => { 
-                    field.classList.remove('error-shake'); 
-                    err.style.visibility = 'hidden'; 
-                    field.style.color = '#f1c40f'; 
-                    clearPin(); 
-                }, 1200);
+                setTimeout(() => { field.classList.remove('error-shake'); err.style.visibility = 'hidden'; field.style.color = '#f1c40f'; clearPin(); }, 1200);
                 return;
             }
 
             field.style.color = '#3498db'; 
-            err.innerText = "ПРОБИВАЕМ ПО БАЗЕ...";
+            err.innerText = translations[currentLang].pin_checking;
             err.style.color = '#3498db';
             err.style.visibility = 'visible';
 
@@ -544,7 +540,6 @@
                     body: JSON.stringify({ action: 'verifyPin', pin: val })
                 });
 
-                // Читаем как текст, чтобы избежать падения на HTML-ошибках Google
                 const textRes = await response.text(); 
                 let res;
                 try {
@@ -559,7 +554,7 @@
                     localStorage.removeItem('pos_block');
 
                     field.style.color = '#2ecc71'; 
-                    err.innerText = "ДОСТУП РАЗРЕШЕН";
+                    err.innerText = translations[currentLang].pin_granted;
                     err.style.color = '#2ecc71';
                     
                     setTimeout(() => {
@@ -567,7 +562,7 @@
                         field.style.color = '#f1c40f';
                         err.style.color = '#e74c3c';
                         err.style.visibility = 'hidden';
-                        err.innerText = "НЕВЕРНЫЙ ПИН-КОД";
+                        err.innerText = translations[currentLang].pin_wrong;
                     }, 400);
 
                 } else {
@@ -597,8 +592,7 @@
                 field.classList.add('error-shake');
                 
                 const attemptsLeft = Math.max(0, 3 - failedAttempts);
-                // Если ошибка сети - не пугаем юзера неверным пином
-                err.innerText = isWrongPin ? `НЕВЕРНЫЙ ПИН. ОСТАЛОСЬ: ${attemptsLeft}` : "СБОЙ ПОДКЛЮЧЕНИЯ";
+                err.innerText = isWrongPin ? `${translations[currentLang].pin_wrong_left}${attemptsLeft}` : translations[currentLang].pin_conn_error;
                 err.style.color = '#e74c3c';
                 err.style.visibility = 'visible';
 
@@ -1481,15 +1475,14 @@
                                     }
                                 }
                             } else {
-                                // Если чего-то не хватает, записываем ошибку именно для ЭТОГО листа
                                 let missing = [];
-                                if (colMap.code === -1) missing.push("«Код»");
-                                if (colMap.qty === -1) missing.push("«Кол-во»");
-                                if (colMap.price === -1) missing.push("«Цена»");
-                                sheetErrorsList.push(`[Лист ${sheetName}] стр. ${headerRowIdx + 1}: нет ${missing.join(', ')}`);
+                                if (colMap.code === -1) missing.push(translations[currentLang].word_code);
+                                if (colMap.qty === -1) missing.push(translations[currentLang].word_qty);
+                                if (colMap.price === -1) missing.push(translations[currentLang].word_price);
+                                sheetErrorsList.push(translations[currentLang].inc_err_sheet_missing.replace('{0}', sheetName).replace('{1}', headerRowIdx + 1) + missing.join(', '));
                             }
                         } else {
-                            sheetErrorsList.push(`[Лист ${sheetName}]: нет таблицы с цифрами`);
+                            sheetErrorsList.push(translations[currentLang].inc_err_sheet_no_table.replace('{0}', sheetName));
                         }
                     } // --- КОНЕЦ ЦИКЛА ПО ЛИСТАМ ---
                     
