@@ -1293,11 +1293,8 @@
             for (let file of fileInput.files) {
                 let fileErrors = [];
                 let itemsInFile = 0;
-                let globalFoundHeader = false;
-                
-                let globalFirstDataRow = -1;
-                let globalHeaderRow = -1;
-                let globalColMap = null;
+                let fileParsedSuccessfully = false;
+                let sheetErrorsList = []; // Хранилище ошибок для каждого листа
 
                 const b64Promise = new Promise((resolve) => {
                     const reader = new FileReader();
@@ -1319,6 +1316,7 @@
                 try {
                     const workbook = XLSX.read(arrayBuffer, {type: 'array'});
                     
+                    // --- ПРОХОДИМ ПО КАЖДОМУ ЛИСТУ (CI, PL и т.д.) ---
                     for (let sheetName of workbook.SheetNames) {
                         const worksheet = workbook.Sheets[sheetName];
                         const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
@@ -1363,7 +1361,7 @@
                             }
                         }
 
-                        // --- 3. АЛГОРИТМ ГРАНИЦ: ПОИСК СТРОГО ПО ЧИСЛАМ ---
+                        // 3. АЛГОРИТМ ГРАНИЦ: ИЩЕМ ЦИФРЫ
                         let firstDataRowIdx = -1;
                         for (let i = 0; i < Math.min(50, rows.length); i++) {
                             let row = rows[i] || [];
@@ -1383,13 +1381,10 @@
                             }
                         }
 
-                        // --- 4. ЧИТАЕМ СТРОГО ОДНУ СТРОКУ НАД ДАННЫМИ ---
-                        let headerRowIdx = -1;
-                        let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
-                        let foundHeaderInFile = false;
-
+                        // 4. ЧИТАЕМ СТРОГО ОДНУ СТРОКУ НАД ДАННЫМИ
                         if (firstDataRowIdx > 0) {
-                            headerRowIdx = firstDataRowIdx - 1;
+                            let headerRowIdx = firstDataRowIdx - 1;
+                            let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
                             
                             let headerRow = rows[headerRowIdx] || [];
                             
@@ -1403,53 +1398,56 @@
                                 if (colMap.desc === -1 && isSynonym(val, 'name')) colMap.desc = j;
                             }
 
-                            globalFirstDataRow = firstDataRowIdx;
-                            globalHeaderRow = headerRowIdx; 
-                            globalColMap = colMap;
-
+                            // ПРОВЕРКА УСПЕХА ДЛЯ ТЕКУЩЕГО ЛИСТА
                             if (colMap.code !== -1 && colMap.qty !== -1 && colMap.price !== -1) {
-                                foundHeaderInFile = true;
-                                globalFoundHeader = true;
-                            }
-                        }
-
-                        if (!invoiceGroups[file_doc_no]) {
-                            invoiceGroups[file_doc_no] = { supplier: file_supplier, items: [], originalFiles: [] };
-                        }
-
-                        // --- 5. СБОР ТОВАРОВ ИЗ ТАБЛИЦЫ ---
-                        if (foundHeaderInFile && firstDataRowIdx !== -1) {
-                            for (let i = firstDataRowIdx; i < rows.length; i++) {
-                                const row = rows[i];
-                                if (!row || row.length === 0) continue;
+                                fileParsedSuccessfully = true; // Нашли идеальную таблицу!
                                 
-                                let codeCell = String(row[colMap.code] || '').trim();
-                                if (!codeCell || codeCell.toUpperCase().includes('TOTAL')) break;
-
-                                let qty = parseFloat(row[colMap.qty]);
-                                let price = parseFloat(row[colMap.price]);
-                                let brandStr = colMap.brand !== -1 ? String(row[colMap.brand] || '').trim() : '';
-                                let descStr = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
-                                
-                                if (!isNaN(qty) && !isNaN(price)) {
-                                    const itemData = {
-                                        doc_no: file_doc_no, 
-                                        supplier: file_supplier, 
-                                        item_id: codeCell,
-                                        item_name: `${brandStr} ${descStr}`.trim(), 
-                                        qty: qty, 
-                                        cost: price,
-                                        staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
-                                    };
-                                    parsedInvoiceData.push(itemData);
-                                    invoiceGroups[file_doc_no].items.push(itemData);
-                                    itemsInFile++;
+                                if (!invoiceGroups[file_doc_no]) {
+                                    invoiceGroups[file_doc_no] = { supplier: file_supplier, items: [], originalFiles: [] };
                                 }
+
+                                // 5. СБОР ТОВАРОВ
+                                for (let i = firstDataRowIdx; i < rows.length; i++) {
+                                    const row = rows[i];
+                                    if (!row || row.length === 0) continue;
+                                    
+                                    let codeCell = String(row[colMap.code] || '').trim();
+                                    if (!codeCell || codeCell.toUpperCase().includes('TOTAL')) break;
+
+                                    let qty = parseFloat(row[colMap.qty]);
+                                    let price = parseFloat(row[colMap.price]);
+                                    let brandStr = colMap.brand !== -1 ? String(row[colMap.brand] || '').trim() : '';
+                                    let descStr = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
+                                    
+                                    if (!isNaN(qty) && !isNaN(price)) {
+                                        const itemData = {
+                                            doc_no: file_doc_no, 
+                                            supplier: file_supplier, 
+                                            item_id: codeCell,
+                                            item_name: `${brandStr} ${descStr}`.trim(), 
+                                            qty: qty, 
+                                            cost: price,
+                                            staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
+                                        };
+                                        parsedInvoiceData.push(itemData);
+                                        invoiceGroups[file_doc_no].items.push(itemData);
+                                        itemsInFile++;
+                                    }
+                                }
+                            } else {
+                                // Если чего-то не хватает, записываем ошибку именно для ЭТОГО листа
+                                let missing = [];
+                                if (colMap.code === -1) missing.push("«Код»");
+                                if (colMap.qty === -1) missing.push("«Кол-во»");
+                                if (colMap.price === -1) missing.push("«Цена»");
+                                sheetErrorsList.push(`[Лист ${sheetName}] стр. ${headerRowIdx + 1}: нет ${missing.join(', ')}`);
                             }
+                        } else {
+                            sheetErrorsList.push(`[Лист ${sheetName}]: нет таблицы с цифрами`);
                         }
-                    } 
+                    } // --- КОНЕЦ ЦИКЛА ПО ЛИСТАМ ---
                     
-                    if (invoiceGroups[file_doc_no]) {
+                    if (invoiceGroups[file_doc_no] && fileParsedSuccessfully) {
                         const alreadyAdded = invoiceGroups[file_doc_no].originalFiles.some(f => f.fileName === file.name);
                         if (!alreadyAdded) {
                             invoiceGroups[file_doc_no].originalFiles.push({
@@ -1464,25 +1462,19 @@
                     fileErrors.push("Файл поврежден или не является таблицей");
                 }
 
-                // 6. ИДЕАЛЬНО ТОЧНЫЙ ОТЧЕТ ОБ ОШИБКАХ
+                // 6. ИТОГОВЫЙ ОТЧЕТ
                 if (file_doc_no === 'UNKNOWN') fileErrors.push("нет номера инвойса");
                 if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
                 
-                if (globalFirstDataRow === -1) {
-                    fileErrors.push("таблица с товарами не найдена (нет строк с ценами и кол-вом)");
-                } else if (!globalFoundHeader) {
-                    let missing = [];
-                    if (globalColMap.code === -1) missing.push("«Код»");
-                    if (globalColMap.qty === -1) missing.push("«Кол-во»");
-                    if (globalColMap.price === -1) missing.push("«Цена»");
-                    
-                    fileErrors.push(`в шапке (строка ${globalHeaderRow + 1}) не найдено: ${missing.join(', ')}`);
+                // Если мы так и не смогли распарсить ни один лист - выводим подробный диагноз по всем листам
+                if (!fileParsedSuccessfully) {
+                    fileErrors.push(sheetErrorsList.join('<br>'));
                 } else if (itemsInFile === 0) {
                     fileErrors.push("из таблицы не удалось извлечь товары");
                 }
 
                 if (fileErrors.length > 0) {
-                    processingLogs.push(`<div style="color:#e74c3c; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #e74c3c; background:#1a1a1a;">⚠️ <b>${file.name}</b>: ${fileErrors.join(' | ')}</div>`);
+                    processingLogs.push(`<div style="color:#e74c3c; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #e74c3c; background:#1a1a1a;">⚠️ <b>${file.name}</b>:<br>${fileErrors.join('<br>')}</div>`);
                 } else {
                     processingLogs.push(`<div style="color:#2ecc71; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #2ecc71; background:#1a1a1a;">✅ <b>${file.name}</b>: Распознано ${itemsInFile} поз.</div>`);
                 }
