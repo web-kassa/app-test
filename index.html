@@ -174,29 +174,46 @@
         @keyframes spin-sync { 100% { transform: rotate(360deg); } }
         .sync-spin { animation: spin-sync 1s linear infinite; color: #2ecc71 !important; border-color: #2ecc71 !important; pointer-events: none; }
     
-    /* === СВЕТЛАЯ ТЕМА (OVERRIDE) === */
-        body.light-theme { background-color: #f2f2f7; color: #000000; font-weight: bold; }
+    /* === СВЕТЛАЯ ТЕМА (OVERRIDE - ИСПРАВЛЕННОЕ) === */
+        body.light-theme { background-color: #f2f2f7 !important; color: #000000 !important; font-weight: bold !important; }
         
         /* Авторизация и шапка */
-        .light-theme #login-screen { background-color: #f2f2f7; }
-        .light-theme .app-header, .light-theme .top-bar { background-color: #ffffff; border-bottom: 1px solid #c6c6c8; }
+        .light-theme #login-screen { background-color: #f2f2f7 !important; }
+        .light-theme .app-header, .light-theme .top-bar, .light-theme .header { background-color: #ffffff !important; border-bottom: 1px solid #c6c6c8 !important; }
+        
+        /* Поиск и шапка таблицы */
+        .light-theme #sb, .light-theme .search-bar, .light-theme input[type="text"], .light-theme input[type="password"] { background-color: #ffffff !important; color: #000000 !important; border: 1px solid #c6c6c8 !important; }
+        .light-theme .list-header { background-color: #f2f2f7 !important; color: #444444 !important; border-bottom: 1px solid #c6c6c8 !important; }
         
         /* Каталог и Категории */
-        .light-theme .cat-bar { border-bottom: 1px solid #c6c6c8; background-color: #f2f2f7; }
-        .light-theme .cat-btn { background-color: #ffffff; color: #444444; border: 1px solid #c6c6c8; font-weight: bold; }
-        .light-theme .cat-btn.active { background-color: #d4ac0d; color: #000000; border-color: #d4ac0d; }
-        .light-theme .list-header { border-bottom: 1px solid #c6c6c8; color: #444444; }
-        .light-theme .c-item { border-bottom: 1px solid #c6c6c8; background-color: #ffffff; color: #000000; }
+        .light-theme .cat-bar { background-color: #f2f2f7 !important; border-bottom: 1px solid #c6c6c8 !important; }
+        .light-theme .cat-btn { background-color: #ffffff !important; color: #444444 !important; border: 1px solid #c6c6c8 !important; font-weight: bold !important; }
+        .light-theme .cat-btn.active { background-color: #d4ac0d !important; color: #000000 !important; border-color: #d4ac0d !important; }
         
-        /* Правая панель (корзина) и меню */
-        .light-theme #cart-container, .light-theme .cart-panel { background-color: #ffffff; border-left: 1px solid #c6c6c8; }
-        .light-theme #settings-menu { background-color: #ffffff; border: 1px solid #c6c6c8; color: #000000; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        /* Карточки товаров */
+        .light-theme .c-item { background-color: #ffffff !important; color: #000000 !important; border-bottom: 1px solid #c6c6c8 !important; }
+        .light-theme .c-item:hover { background-color: #f9f9f9 !important; }
+        .light-theme .i-name { color: #000000 !important; }
+        .light-theme .i-price { color: #27ae60 !important; font-weight: bold !important; }
+        .light-theme .i-stock { color: #444444 !important; }
         
-        /* Инпуты и цифровой блок */
-        .light-theme input, .light-theme select { background-color: #ffffff; color: #000000; border: 1px solid #c6c6c8; font-weight: bold; }
-        .light-theme .numpad button { background-color: #ffffff; color: #000000; border: 1px solid #c6c6c8; font-weight: bold; }
-        .light-theme .modal, .light-theme .item-menu { background-color: #ffffff; border: 1px solid #c6c6c8; color: #000000; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        .light-theme .modal-header { border-bottom: 1px solid #c6c6c8; }
+        /* Правая панель (корзина) */
+        .light-theme #cart-container, .light-theme .right-panel, .light-theme #cart-area { background-color: #ffffff !important; border-left: 1px solid #c6c6c8 !important; }
+        .light-theme #cart-items { background-color: #ffffff !important; }
+        .light-theme .cart-item { border-bottom: 1px solid #c6c6c8 !important; color: #000000 !important; }
+        .light-theme .cart-total { color: #000000 !important; }
+        
+        /* Принудительная очистка жестких инлайн-цветов */
+        .light-theme div[style*="background: #111"], .light-theme div[style*="background-color: #111"], 
+        .light-theme div[style*="background: #1a1a1a"], .light-theme div[style*="background-color: #1a1a1a"] { background-color: #ffffff !important; color: #000000 !important; }
+        
+        /* Модальные окна (Настройки, Окно оплаты) */
+        .light-theme .modal-content, .light-theme .modal-body, .light-theme #settings-menu, .light-theme .item-menu { background-color: #ffffff !important; color: #000000 !important; border: 1px solid #c6c6c8 !important; box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important; }
+        .light-theme .modal-header, .light-theme .modal-title { border-bottom: 1px solid #c6c6c8 !important; color: #000000 !important; }
+        
+        /* Кнопки цифр (Numpad) */
+        .light-theme .numpad button, .light-theme .calc-btn { background-color: #f2f2f7 !important; color: #000000 !important; border: 1px solid #c6c6c8 !important; font-weight: bold !important; }
+        .light-theme .numpad button:hover, .light-theme .calc-btn:hover { background-color: #e5e5ea !important; }
     </style>
 </head>
 <body>
@@ -332,10 +349,12 @@
                     <span data-i18n="btn_update">Обновить кэш</span><span id="update-status">🔄</span>
                 </button>
             </div>
-            <button class="cancel-btn" style="width: 100%; margin-top: 10px;" onclick="closeSettings()" data-i18n="btn_close">ЗАКРЫТЬ</button>
             <button onclick="toggleTheme()" style="width: 100%; padding: 12px; margin-top: 10px; background: transparent; color: inherit; border: 1px solid #888; border-radius: 8px; font-weight: bold; cursor: pointer;">
         <span data-i18n="theme_toggle">СМЕНА ТЕМЫ</span> 🌓
     </button>
+            
+            <button class="cancel-btn" style="width: 100%; margin-top: 10px;" onclick="closeSettings()" data-i18n="btn_close">ЗАКРЫТЬ</button>
+            
         </div>
     </div>
 
