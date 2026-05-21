@@ -1293,7 +1293,12 @@
             for (let file of fileInput.files) {
                 let fileErrors = [];
                 let itemsInFile = 0;
-                let foundHeaderInFile = false;
+                let globalFoundHeader = false;
+                
+                // Переменные для отчета по поиску границ
+                let globalFirstDataRow = -1;
+                let globalHeaderRow = -1;
+                let globalColMap = null;
 
                 const b64Promise = new Promise((resolve) => {
                     const reader = new FileReader();
@@ -1315,12 +1320,12 @@
                 try {
                     const workbook = XLSX.read(arrayBuffer, {type: 'array'});
                     
-                    workbook.SheetNames.forEach((sheetName) => {
+                    for (let sheetName of workbook.SheetNames) {
                         const worksheet = workbook.Sheets[sheetName];
                         const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-                        if (!rows || rows.length === 0) return;
+                        if (!rows || rows.length === 0) continue;
 
-                        // 1. Поиск поставщика
+                        // 1. Поиск поставщика (сканируем верх)
                         if (file_supplier === 'UNKNOWN') {
                             for (let i = 0; i < Math.min(10, rows.length); i++) {
                                 let row = rows[i];
@@ -1337,47 +1342,87 @@
                                     }
                                 }
                             }
+                            if (file_supplier === 'UNKNOWN') {
+                                for (let i = 0; i < Math.min(8, rows.length); i++) {
+                                    let row = rows[i] || [];
+                                    let text = String(row[0] || "").trim();
+                                    if (text && !excludes.some(ex => text.toLowerCase().includes(ex.toLowerCase()))) {
+                                        file_supplier = text.replace(/^"|"$/g, '');
+                                        break;
+                                    }
+                                }
+                            }
                         }
 
-                        // 2. ПОИСК "ИСТИННОЙ" ШАПКИ (Алгоритм "Якорь")
-                        let bestMatchScore = -1;
-                        let headerRowIdx = -1;
-                        let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
-                        let bestMissing = ["Код", "Кол-во", "Цена"];
-
-                        for (let i = 0; i < Math.min(25, rows.length); i++) {
-                            const row = rows[i] || [];
-                            if (row.length === 0) continue;
-
-                            if (file_doc_no === 'UNKNOWN') {
+                        // 2. Ищем номер инвойса
+                        if (file_doc_no === 'UNKNOWN') {
+                            for (let i = 0; i < Math.min(20, rows.length); i++) {
+                                let row = rows[i] || [];
                                 for (let j = 0; j < row.length; j++) {
                                     if (isSynonym(row[j], 'invoice_no')) {
                                         file_doc_no = String(row[j+1] || 'UNKNOWN').trim();
                                     }
                                 }
                             }
+                        }
 
-                            let cIdx = row.findIndex(c => isSynonym(c, 'id'));
-                            let qIdx = row.findIndex(c => isSynonym(c, 'qty'));
-                            let pIdx = row.findIndex(c => isSynonym(c, 'price'));
-                            let bIdx = row.findIndex(c => isSynonym(c, 'brand'));
-                            let dIdx = row.findIndex(c => isSynonym(c, 'name'));
+                        // --- 3. АЛГОРИТМ ГРАНИЦ: ПОИСК НАЧАЛА ДАННЫХ ---
+                        let maxCols = 0;
+                        for (let i = 0; i < Math.min(50, rows.length); i++) {
+                            let density = (rows[i] || []).filter(c => c !== undefined && c !== null && String(c).trim() !== '').length;
+                            if (density > maxCols) maxCols = density;
+                        }
 
-                            let score = (cIdx !== -1 ? 1 : 0) + (qIdx !== -1 ? 1 : 0) + (pIdx !== -1 ? 1 : 0);
-                            let currentMissing = [];
-                            if (cIdx === -1) currentMissing.push("Код");
-                            if (qIdx === -1) currentMissing.push("Кол-во");
-                            if (pIdx === -1) currentMissing.push("Цена");
+                        let firstDataRowIdx = -1;
+                        for (let i = 0; i < Math.min(50, rows.length); i++) {
+                            let row = rows[i] || [];
+                            if (row.length === 0) continue;
 
-                            // Если это самая "полная" строка, считаем её шапкой
-                            if (score > bestMatchScore) {
-                                bestMatchScore = score;
-                                bestMissing = currentMissing;
-                                if (score >= 2) { // Если нашли 2 или 3 параметра
-                                    headerRowIdx = i;
-                                    colMap = { code: cIdx, brand: bIdx, desc: dIdx, qty: qIdx, price: pIdx };
-                                    foundHeaderInFile = true;
-                                }
+                            let density = row.filter(c => c !== undefined && c !== null && String(c).trim() !== '').length;
+                            // Считаем ячейки, которые похожи на числа (Цены, Количества)
+                            let numCount = row.filter(c => {
+                                let val = String(c).trim();
+                                return val !== '' && !isNaN(parseFloat(val));
+                            }).length;
+
+                            // Ядро таблицы = минимум 2 числа в строке + высокая плотность заполнения
+                            if (numCount >= 2 && density >= Math.max(3, maxCols - 3)) {
+                                firstDataRowIdx = i;
+                                break;
+                            }
+                        }
+
+                        // --- 4. ЧИТАЕМ СТРОКУ СТРОГО НАД ДАННЫМИ ---
+                        let headerRowIdx = -1;
+                        let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
+                        let foundHeaderInFile = false;
+
+                        if (firstDataRowIdx > 0) {
+                            headerRowIdx = firstDataRowIdx - 1;
+                            
+                            // Если строка прямо над данными пустая, берем еще на одну выше
+                            let hrDensity = (rows[headerRowIdx] || []).filter(c => c !== undefined && c !== null && String(c).trim() !== '').length;
+                            if (hrDensity === 0 && headerRowIdx > 0) {
+                                headerRowIdx--; 
+                            }
+
+                            const headerRow = rows[headerRowIdx] || [];
+                            for (let j = 0; j < headerRow.length; j++) {
+                                if (colMap.code === -1 && isSynonym(headerRow[j], 'id')) colMap.code = j;
+                                if (colMap.qty === -1 && isSynonym(headerRow[j], 'qty')) colMap.qty = j;
+                                if (colMap.price === -1 && isSynonym(headerRow[j], 'price')) colMap.price = j;
+                                if (colMap.brand === -1 && isSynonym(headerRow[j], 'brand')) colMap.brand = j;
+                                if (colMap.desc === -1 && isSynonym(headerRow[j], 'name')) colMap.desc = j;
+                            }
+
+                            // Сохраняем результаты для вывода отчета
+                            globalFirstDataRow = firstDataRowIdx;
+                            globalHeaderRow = headerRowIdx;
+                            globalColMap = colMap;
+
+                            if (colMap.code !== -1 && colMap.qty !== -1 && colMap.price !== -1) {
+                                foundHeaderInFile = true;
+                                globalFoundHeader = true;
                             }
                         }
 
@@ -1385,44 +1430,116 @@
                             invoiceGroups[file_doc_no] = { supplier: file_supplier, items: [], originalFiles: [] };
                         }
 
-                        if (foundHeaderInFile && headerRowIdx !== -1) {
-                            for (let i = headerRowIdx + 1; i < rows.length; i++) {
+                        // --- 5. СБОР ТОВАРОВ ИЗ ТАБЛИЦЫ ---
+                        if (foundHeaderInFile && firstDataRowIdx !== -1) {
+                            for (let i = firstDataRowIdx; i < rows.length; i++) {
                                 const row = rows[i];
-                                if (!row || !row[colMap.code]) continue;
+                                if (!row || row.length === 0) continue;
+                                
+                                let codeCell = String(row[colMap.code] || '').trim();
+                                if (!codeCell || codeCell.toUpperCase().includes('TOTAL')) break; // Дошли до низа
+
                                 let qty = parseFloat(row[colMap.qty]);
                                 let price = parseFloat(row[colMap.price]);
+                                let brandStr = colMap.brand !== -1 ? String(row[colMap.brand] || '').trim() : '';
+                                let descStr = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
+                                
                                 if (!isNaN(qty) && !isNaN(price)) {
-                                    parsedInvoiceData.push({
-                                        doc_no: file_doc_no, supplier: file_supplier, item_id: String(row[colMap.code]).trim(),
-                                        item_name: (colMap.brand !== -1 ? row[colMap.brand] : '') + " " + (colMap.desc !== -1 ? row[colMap.desc] : ''),
-                                        qty, cost: price, staff_id: currentUser ? currentUser.uid : 'Auto'
-                                    });
-                                    invoiceGroups[file_doc_no].items.push(parsedInvoiceData[parsedInvoiceData.length - 1]);
+                                    const itemData = {
+                                        doc_no: file_doc_no, 
+                                        supplier: file_supplier, 
+                                        item_id: codeCell,
+                                        item_name: `${brandStr} ${descStr}`.trim(), 
+                                        qty: qty, 
+                                        cost: price,
+                                        staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
+                                    };
+                                    parsedInvoiceData.push(itemData);
+                                    invoiceGroups[file_doc_no].items.push(itemData);
                                     itemsInFile++;
                                 }
                             }
                         }
-                    });
+                    } // конец цикла по листам
                     
                     if (invoiceGroups[file_doc_no]) {
-                        invoiceGroups[file_doc_no].originalFiles.push({ fileName: file.name, fileBase64: originalBase64 });
+                        const alreadyAdded = invoiceGroups[file_doc_no].originalFiles.some(f => f.fileName === file.name);
+                        if (!alreadyAdded) {
+                            invoiceGroups[file_doc_no].originalFiles.push({
+                                fileName: file.name,
+                                fileBase64: originalBase64
+                            });
+                        }
                     }
 
-                } catch (err) { fileErrors.push("Файл поврежден"); }
+                } catch (err) {
+                    console.error("Ошибка чтения файла: " + file.name, err);
+                    fileErrors.push("Файл поврежден или не является таблицей");
+                }
 
-                // 3. Вывод точной ошибки
+                // 6. ИДЕАЛЬНО ТОЧНЫЙ ОТЧЕТ ОБ ОШИБКАХ
                 if (file_doc_no === 'UNKNOWN') fileErrors.push("нет номера инвойса");
-                if (!foundHeaderInFile) fileErrors.push("отсутствуют колонки: " + bestMissing.join(', '));
-                else if (itemsInFile === 0) fileErrors.push("нет данных в таблице");
+                if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
+                
+                if (globalFirstDataRow === -1) {
+                    fileErrors.push("таблица с товарами не найдена (нет строк с цифрами)");
+                } else if (!globalFoundHeader) {
+                    let missing = [];
+                    if (globalColMap.code === -1) missing.push("«Код»");
+                    if (globalColMap.qty === -1) missing.push("«Кол-во»");
+                    if (globalColMap.price === -1) missing.push("«Цена»");
+                    
+                    // Указываем номер строки, в которой мы искали шапку (Excel Row = Index + 1)
+                    fileErrors.push(`в шапке (строка ${globalHeaderRow + 1}) не найдено: ${missing.join(', ')}`);
+                } else if (itemsInFile === 0) {
+                    fileErrors.push("из таблицы не удалось извлечь товары");
+                }
 
-                processingLogs.push(fileErrors.length > 0 
-                    ? `<div style="color:#e74c3c">⚠️ <b>${file.name}</b>: ${fileErrors.join(', ')}</div>` 
-                    : `<div style="color:#2ecc71">✅ <b>${file.name}</b>: Ок (${itemsInFile} поз.)</div>`);
+                if (fileErrors.length > 0) {
+                    processingLogs.push(`<div style="color:#e74c3c; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #e74c3c; background:#1a1a1a;">⚠️ <b>${file.name}</b>: ${fileErrors.join(' | ')}</div>`);
+                } else {
+                    processingLogs.push(`<div style="color:#2ecc71; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #2ecc71; background:#1a1a1a;">✅ <b>${file.name}</b>: Распознано ${itemsInFile} поз.</div>`);
+                }
             }
 
-            document.getElementById('debug-container').innerHTML = processingLogs.join('');
-            document.getElementById('debug-container').style.display = 'flex';
-            // ... (дальше вывод таблицы, как было)
+            const debugContainer = document.getElementById('debug-container');
+            debugContainer.style.maxHeight = 'none'; 
+            debugContainer.style.overflowY = 'visible';
+            debugContainer.innerHTML = processingLogs.join('');
+            debugContainer.style.display = 'flex';
+
+            if (parsedInvoiceData.length === 0) {
+                document.getElementById('invoicePreviewArea').style.display = 'none';
+                return; 
+            }
+
+            const uniqueDocs = Object.keys(invoiceGroups).filter(k => k !== 'UNKNOWN');
+            const uniqueSuppliers = [...new Set(parsedInvoiceData.map(i => i.supplier))];
+
+            let docUiHtml = '';
+            if (uniqueDocs.length === 1) {
+                docUiHtml = `<input type="text" id="ui-doc-no" value="${uniqueDocs[0]}" style="background:#222; color:#f1c40f; border:1px dashed #555; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:13px; width: 140px; outline:none;" title="Можно редактировать">`;
+            } else if (uniqueDocs.length > 1) {
+                docUiHtml = `<span style="color:#f1c40f; font-weight:bold;">${uniqueDocs.join(', ')}</span>`;
+            } else {
+                docUiHtml = `<span style="color:#e74c3c; font-weight:bold;">ОШИБКА НОМЕРА</span>`;
+            }
+
+            document.getElementById('invoiceMetadata').innerHTML = `Поставщик: <b style="color:#f1c40f;">${uniqueSuppliers.join(', ')}</b> | Документ: ${docUiHtml} | Позиций: ${parsedInvoiceData.length}`;
+            
+            document.getElementById('invoiceTableBody').innerHTML = parsedInvoiceData.map(item => `
+                <tr style="border-bottom:1px solid #333;">
+                    <td style="padding:5px;">${item.item_id}</td>
+                    <td style="padding:5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
+                        ${item.item_name}
+                        ${uniqueDocs.length > 1 ? `<br><span style="font-size:9px; color:#888;">[Инвойс: ${item.doc_no}]</span>` : ''}
+                    </td>
+                    <td style="padding:5px;">${item.qty}</td>
+                    <td style="padding:5px;">$${item.cost}</td>
+                </tr>`).join('');
+            
+            document.getElementById('invoicePreviewArea').style.display = 'flex';
+            document.getElementById('parseInvoiceBtn').style.display = 'none';
         }
 
         async function sendInvoiceToBackend() {
