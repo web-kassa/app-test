@@ -13,6 +13,12 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
 
+        /* КАТЕГОРИИ ТОВАРОВ */
+        .cat-bar { display: flex; overflow-x: auto; gap: 8px; padding: 10px 15px; border-bottom: 1px solid #222; }
+        .cat-btn { background: #111; color: #888; border: 1px solid #333; padding: 6px 14px; border-radius: 15px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+        .cat-btn.active { background: #f1c40f; color: #000; font-weight: bold; border-color: #f1c40f; }
+        .cat-bar::-webkit-scrollbar { display: none; }
+
         /* КОНТЕЙНЕР УЛЬТРА-МИНИМАЛИЗМА */
         .minimal-input-container { display: flex; gap: 10px; align-items: center; width: 100%; margin-bottom: 15px; }
         .currency-minimal-container { flex: 0 0 70px; position: relative; }
@@ -214,6 +220,8 @@
         </div>
     </div>
 
+    <div class="cat-bar" id="categoryBar"></div>
+
     <div id="catalog"></div>
 
     <div id="cs" class="cart-sec">
@@ -373,7 +381,9 @@
     inc_sending: "Отправка {0}...", inc_server_err: "Ошибка сервера", inc_send_err: "❌ Ошибка при отправке инвойса: ",
     inc_archive_created: "Архив создан! Склад обновлен.", inc_all_done: "✅ Все накладные успешно проведены!",
     word_code: "«Код»", word_qty: "«Кол-во»", word_price: "«Цена»", login_title: "ВХОД", inc_err_sheet_missing: "[Лист {0}] стр. {1}: нет ",
-    inc_err_sheet_no_table: "[Лист {0}]: нет таблицы с цифрами"
+    inc_err_sheet_no_table: "[Лист {0}]: нет таблицы с цифрами", cat_all: "Все",
+    server_dup: "Накладная с номером {0} уже была проведена ранее.",
+    server_no_db: "База не привязана. Нажмите POS Setup -> Привязать базу."
             },
             kz: {
                 btn_sale: "САТУ", btn_return: "ҚАЙТАРУ", search_placeholder: "ІЗДЕУ...",
@@ -419,7 +429,9 @@
     inc_sending: "{0} жіберілуде...", inc_server_err: "Сервер қатесі", inc_send_err: "❌ Инвойсты жіберу қатесі: ",
     inc_archive_created: "Мұрағат құрылды! Қойма жаңартылды.", inc_all_done: "✅ Барлық жүкқұжаттар сәтті өтті!",
     word_code: "«Код»", word_qty: "«Саны»", word_price: "«Бағасы»", login_title: "КІРУ", inc_err_sheet_missing: "[{0} парағы] {1}-жол: табылмады ",
-    inc_err_sheet_no_table: "[{0} парағы]: цифрлары бар кесте жоқ"
+    inc_err_sheet_no_table: "[{0} парағы]: цифрлары бар кесте жоқ", cat_all: "Барлығы",
+    server_dup: "{0} нөмірлі жүкқұжат бұрын қабылданған.",
+    server_no_db: "Дерекқор байланыспаған. POS Setup -> Привязать базу түймесін басыңыз."
             }
         };
 
@@ -432,6 +444,33 @@
         let blockUntil = parseInt(localStorage.getItem('pos_block')) || 0;
         
         let invoiceSynonyms = {};
+
+        let currentCategory = 'all';
+
+        function renderCategories() {
+            const categories = new Set();
+            document.querySelectorAll('.c-item').forEach(el => {
+                const cat = el.getAttribute('data-cat');
+                if (cat) categories.add(cat);
+            });
+
+            const bar = document.getElementById('categoryBar');
+            if (!bar) return;
+
+            let html = `<div class="cat-btn ${currentCategory === 'all' ? 'active' : ''}" onclick="setCategory('all')" data-i18n="cat_all">${translations[currentLang].cat_all}</div>`;
+
+            categories.forEach(c => {
+                html += `<div class="cat-btn ${currentCategory === c ? 'active' : ''}" onclick="setCategory('${c}')">${c}</div>`;
+            });
+
+            bar.innerHTML = html;
+        }
+
+        function setCategory(cat) {
+            currentCategory = cat;
+            renderCategories();
+            filter();
+        }
 
         function checkBlockTimer() {
             if (blockUntil > Date.now()) {
@@ -684,18 +723,29 @@
             catalog.innerHTML = db.map(i => {
                 const hasPhoto = i.img && i.img.toString().length > 10;
                 const photoBadge = `<span onclick="openItemMenu('${i.id}'); event.stopPropagation();" style="background-color: ${hasPhoto?'#f1c40f':'#333'}; color: ${hasPhoto?'#000':'#888'}; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-right: 8px; border: 1px solid #444;">ФОТО</span>`;
-                return `<div class="c-item" onclick="add('${i.id}')">
+                // ЗДЕСЬ ДОБАВЛЕН атрибут data-cat:
+                return `<div class="c-item" onclick="add('${i.id}')" data-cat="${i.category || ''}">
                     <div class="i-name" style="display:flex; align-items:center;">${photoBadge} <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${i.name || 'Без названия'}</span></div>
                     <div class="i-price">${(Number(i.price)||0).toLocaleString()} ₸</div>
                     <div class="i-stock">${Number(i.stock)||0}</div>
                 </div>`;
             }).join('');
+            
+            // ЗДЕСЬ ДОБАВЛЕН вызов новой функции:
+            renderCategories();
         }
 
         function filter() {
             let q = document.getElementById('sb').value.toLowerCase();
             document.querySelectorAll('.c-item').forEach(el => {
-                el.style.display = el.querySelector('.i-name').innerText.toLowerCase().includes(q) ? 'flex' : 'none';
+                const name = el.querySelector('.i-name').innerText.toLowerCase();
+                const itemCat = el.getAttribute('data-cat') || '';
+                
+                // Проверяем совпадение и по поиску, и по категории
+                const matchesSearch = name.includes(q);
+                const matchesCat = (currentCategory === 'all' || itemCat === currentCategory);
+                
+                el.style.display = (matchesSearch && matchesCat) ? 'flex' : 'none';
             });
         }
 
@@ -1629,8 +1679,20 @@
                         throw new Error(res.error);
                     }
                 } catch (err) {
-                    statusText.innerText = "Ошибка сервера"; statusText.style.color = "#e74c3c";
-                    alert(`❌ Ошибка при отправке инвойса ${docNo}: ` + err.message);
+                    statusText.innerText = translations[currentLang].inc_server_err; 
+                    statusText.style.color = "#e74c3c";
+                    
+                    let errorMsg = err.message;
+                    
+                    // --- НАШ ПЕРЕХВАТЧИК ---
+                    let dupMatch = errorMsg.match(/Накладная с номером (.*?) уже была/i);
+                    if (dupMatch && dupMatch[1]) {
+                        errorMsg = translations[currentLang].server_dup.replace('{0}', dupMatch[1].trim());
+                    } else if (errorMsg.includes("База не привязана")) {
+                        errorMsg = translations[currentLang].server_no_db;
+                    }
+
+                    alert(translations[currentLang].inc_send_err + errorMsg);
                     btn.disabled = false; btn.style.opacity = '1';
                     return;
                 }
