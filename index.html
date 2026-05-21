@@ -370,16 +370,19 @@
                     <span data-i18n="btn_sync">Отправить чеки</span><span id="sync-status">📡</span>
                 </button>
             </div>
-            <div class="s-group" style="border: none;">
+            <div class="s-group">
                 <div class="s-title" data-i18n="settings_system">Система</div>
                 <button class="s-btn" onclick="forceAppUpdate()">
                     <span data-i18n="btn_update">Обновить кэш</span><span id="update-status">🔄</span>
                 </button>
             </div>
             
-            <button onclick="toggleTheme()" class="s-btn" style="justify-content: center; margin-top: 15px; background: var(--bg-hover); color: var(--text-main); font-weight: bold; border-color: var(--border-focus);">
-                <span data-i18n="theme_toggle">СМЕНА ТЕМЫ</span> 🌓
-            </button>
+            <div class="s-group" style="border: none; padding-bottom: 0;">
+                <div class="s-title" data-i18n="settings_theme">Оформление</div>
+                <button class="s-btn" onclick="toggleTheme()">
+                    <span data-i18n="theme_toggle">СМЕНА ТЕМЫ</span><span>🌓</span>
+                </button>
+            </div>
 
             <button class="cancel-btn" style="width: 100%; margin-top: 10px;" onclick="closeSettings()" data-i18n="btn_close">ЗАКРЫТЬ</button>
         </div>
@@ -468,7 +471,7 @@
                 inc_err_sheet_no_table: "[Лист {0}]: нет таблицы с цифрами", cat_all: "Все",
                 server_dup: "Накладная с номером {0} уже была проведена ранее.",
                 server_no_db: "База не привязана. Нажмите POS Setup -> Привязать базу.",
-                theme_toggle: "СМЕНА ТЕМЫ (ДЕНЬ/НОЧЬ)"
+                theme_toggle: "СМЕНА ТЕМЫ (ДЕНЬ/НОЧЬ)", settings_theme: "ОФОРМЛЕНИЕ"
             },
             kz: {
                 btn_sale: "САТУ", btn_return: "ҚАЙТАРУ", search_placeholder: "ІЗДЕУ...",
@@ -517,7 +520,7 @@
                 inc_err_sheet_no_table: "[{0} парағы]: цифрлары бар кесте жоқ", cat_all: "Барлығы",
                 server_dup: "{0} нөмірлі жүкқұжат бұрын қабылданған.",
                 server_no_db: "Дерекқор байланыспаған. POS Setup -> Привязать базу түймесін басыңыз.",
-                theme_toggle: "ТАҚЫРЫПТЫ АУЫСТЫРУ (КҮН/ТҮН)"
+                theme_toggle: "ТАҚЫРЫПТЫ АУЫСТЫРУ (КҮН/ТҮН)", settings_theme: "КӨРІНІС"
             }
         };
 
@@ -620,7 +623,13 @@
             document.getElementById('mr').classList.toggle('active-r', m==='return');
             document.getElementById('cs').classList.toggle('r-theme', m==='return');
             document.getElementById('tl').innerText = m === 'return' ? translations[currentLang].total_label_return : translations[currentLang].total_label_sale;
-            document.body.style.backgroundColor = m === 'return' ? 'var(--bg-return)' : 'var(--bg-body)';
+            
+            // МАГИЯ ПЕРЕМЕННЫХ: Принудительно меняем базовый цвет ВСЕЙ программы
+            if (m === 'return') {
+                document.body.style.setProperty('--bg-body', 'var(--bg-return)');
+            } else {
+                document.body.style.removeProperty('--bg-body');
+            }
         }
 
         function addPin(digit) {
