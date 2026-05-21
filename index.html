@@ -734,16 +734,19 @@
             catalog.innerHTML = db.map(i => {
                 const hasPhoto = i.img && i.img.toString().length > 10;
                 const photoBadge = `<span onclick="openItemMenu('${i.id}'); event.stopPropagation();" style="background-color: ${hasPhoto?'#f1c40f':'#333'}; color: ${hasPhoto?'#000':'#888'}; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-right: 8px; border: 1px solid #444;">ФОТО</span>`;
-                // ЗДЕСЬ ДОБАВЛЕН атрибут data-cat:
+                
+                // Округляем цену до целого числа
+                const roundedPrice = Math.round(Number(i.price) || 0);
+                
                 return `<div class="c-item" onclick="add('${i.id}')" data-cat="${i.category || ''}">
                     <div class="i-name" style="display:flex; align-items:center;">${photoBadge} <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${i.name || 'Без названия'}</span></div>
-                    <div class="i-price">${(Number(i.price)||0).toLocaleString()} ₸</div>
+                    <div class="i-price">${roundedPrice.toLocaleString()} ₸</div>
                     <div class="i-stock">${Number(i.stock)||0}</div>
                 </div>`;
             }).join('');
             
-            // ЗДЕСЬ ДОБАВЛЕН вызов новой функции:
             renderCategories();
+            filter(); // <-- Не дает сбросить выбранную категорию при обновлении
         }
 
         function filter() {
@@ -774,7 +777,16 @@
         function add(id) {
             const p = db.find(x => x.id === id);
             const inC = cart.find(x => x.id === id);
-            if (inC) inC.qty++; else cart.push({id:p.id, name:p.name, qty:1, price:p.price, origPrice:p.price, cost:p.cost});
+            
+            // Жестко округляем цену и себестоимость перед добавлением в чек
+            const roundedPrice = Math.round(Number(p.price) || 0);
+            const roundedCost = Math.round(Number(p.cost) || 0);
+            
+            if (inC) {
+                inC.qty++; 
+            } else {
+                cart.push({id: p.id, name: p.name, qty: 1, price: roundedPrice, origPrice: roundedPrice, cost: roundedCost});
+            }
             update();
         }
 
