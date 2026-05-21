@@ -161,7 +161,7 @@
 <body>
 
     <div id="login-screen">
-        <div class="login-label">ВХОД</div>
+        <div class="login-label" data-i18n="login_title">ВХОД</div>
         <input type="password" id="pin-field" class="pin-input" placeholder="****" readonly>
         <div id="login-error">НЕВЕРНЫЙ ПИН-КОД</div>
         
@@ -361,7 +361,18 @@
                 income_meta_supplier: "Поставщик",
                 income_meta_doc: "Документ",
                 income_meta_items: "Позиций",
-                receive_btn: "ПРИЕМКА"
+                receive_btn: "ПРИЕМКА",
+                pin_no_internet: "НЕТ ИНТЕРНЕТА", pin_checking: "ПРОВЕРКА...", pin_granted: "ДОСТУП РАЗРЕШЕН",
+    pin_wrong: "НЕВЕРНЫЙ ПИН-КОД", pin_wrong_left: "НЕВЕРНЫЙ ПИН. ОСТАЛОСЬ: ", pin_conn_error: "СБОЙ ПОДКЛЮЧЕНИЯ",
+    inc_file_selected: "Выбрано файлов: ", inc_file_placeholder: "Нажмите для выбора Excel",
+    inc_err_no_doc: "нет номера инвойса", inc_err_no_sup: "нет поставщика", inc_err_no_table: "таблица с товарами не найдена",
+    inc_err_missing: "в шапке (строка {0}) не найдено: ", inc_err_no_items: "из таблицы не удалось извлечь товары",
+    inc_success: "{0} поз. распознано", inc_err_doc_format: "ОШИБКА НОМЕРА",
+    inc_lbl_sup: "Поставщик:", inc_lbl_doc: "Документ:", inc_lbl_items: "Позиций:",
+    inc_empty_cart: "Корзина пуста!", inc_doc_empty: "Номер документа не может быть пустым!",
+    inc_sending: "Отправка {0}...", inc_server_err: "Ошибка сервера", inc_send_err: "❌ Ошибка при отправке инвойса: ",
+    inc_archive_created: "Архив создан! Склад обновлен.", inc_all_done: "✅ Все накладные успешно проведены!",
+    word_code: "«Код»", word_qty: "«Кол-во»", word_price: "«Цена»", login_title: "ВХОД"
             },
             kz: {
                 btn_sale: "САТУ", btn_return: "ҚАЙТАРУ", search_placeholder: "ІЗДЕУ...",
@@ -395,7 +406,18 @@
                 income_meta_supplier: "Жеткізуші",
                 income_meta_doc: "Құжат",
                 income_meta_items: "Позициялар",
-                receive_btn: "ҚАБЫЛДАУ"
+                receive_btn: "ҚАБЫЛДАУ",
+                pin_no_internet: "ИНТЕРНЕТ ЖОҚ", pin_checking: "БАЗАДАН ТЕКСЕРІЛУДЕ...", pin_granted: "РУҚСАТ БЕРІЛДІ",
+    pin_wrong: "ҚАТЕ ПИН-КОД", pin_wrong_left: "ҚАТЕ ПИН. ҚАЛДЫ: ", pin_conn_error: "ҚОСЫЛУ ҚАТЕСІ",
+    inc_file_selected: "Таңдалған файлдар: ", inc_file_placeholder: "Excel файлын таңдау үшін басыңыз",
+    inc_err_no_doc: "инвойс нөмірі жоқ", inc_err_no_sup: "жеткізуші жоқ", inc_err_no_table: "тауарлар кестесі табылмады",
+    inc_err_missing: "бас жағында ({0}-жол) табылмады: ", inc_err_no_items: "кестеден тауарларды оқу мүмкін болмады",
+    inc_success: "{0} поз. анықталды", inc_err_doc_format: "НӨМІР ҚАТЕСІ",
+    inc_lbl_sup: "Жеткізуші:", inc_lbl_doc: "Құжат:", inc_lbl_items: "Позициялар:",
+    inc_empty_cart: "Себет бос!", inc_doc_empty: "Құжат нөмірі бос болмауы керек!",
+    inc_sending: "{0} жіберілуде...", inc_server_err: "Сервер қатесі", inc_send_err: "❌ Инвойсты жіберу қатесі: ",
+    inc_archive_created: "Мұрағат құрылды! Қойма жаңартылды.", inc_all_done: "✅ Барлық жүкқұжаттар сәтті өтті!",
+    word_code: "«Код»", word_qty: "«Саны»", word_price: "«Бағасы»", login_title: "КІРУ"
             }
         };
 
@@ -1487,20 +1509,20 @@
                 }
 
                 // 6. ИТОГОВЫЙ ОТЧЕТ
-                if (file_doc_no === 'UNKNOWN') fileErrors.push("нет номера инвойса");
-                if (file_supplier === 'UNKNOWN') fileErrors.push("нет поставщика");
+                if (file_doc_no === 'UNKNOWN') fileErrors.push(translations[currentLang].inc_err_no_doc);
+                if (file_supplier === 'UNKNOWN') fileErrors.push(translations[currentLang].inc_err_no_sup);
                 
-                // Если мы так и не смогли распарсить ни один лист - выводим подробный диагноз по всем листам
                 if (!fileParsedSuccessfully) {
+                    // Если были ошибки по листам, мы просто выводим их (они уже собраны в sheetErrorsList)
                     fileErrors.push(sheetErrorsList.join('<br>'));
                 } else if (itemsInFile === 0) {
-                    fileErrors.push("из таблицы не удалось извлечь товары");
+                    fileErrors.push(translations[currentLang].inc_err_no_items);
                 }
 
                 if (fileErrors.length > 0) {
                     processingLogs.push(`<div style="color:#e74c3c; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #e74c3c; background:#1a1a1a;">⚠️ <b>${file.name}</b>:<br>${fileErrors.join('<br>')}</div>`);
                 } else {
-                    processingLogs.push(`<div style="color:#2ecc71; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #2ecc71; background:#1a1a1a;">✅ <b>${file.name}</b>: Распознано ${itemsInFile} поз.</div>`);
+                    processingLogs.push(`<div style="color:#2ecc71; font-size:12px; margin-bottom:4px; padding:6px; border-left:3px solid #2ecc71; background:#1a1a1a;">✅ <b>${file.name}</b>: ${translations[currentLang].inc_success.replace('{0}', itemsInFile)}</div>`);
                 }
             }
 
@@ -1524,21 +1546,22 @@
             } else if (uniqueDocs.length > 1) {
                 docUiHtml = `<span style="color:#f1c40f; font-weight:bold;">${uniqueDocs.join(', ')}</span>`;
             } else {
-                docUiHtml = `<span style="color:#e74c3c; font-weight:bold;">ОШИБКА НОМЕРА</span>`;
+                docUiHtml = `<span style="color:#e74c3c; font-weight:bold;">${translations[currentLang].inc_err_doc_format}</span>`;
             }
 
+            // Вывод метаданных с серыми подписями и переводом
             document.getElementById('invoiceMetadata').innerHTML = `
-                <span style="color:#777; font-weight:normal; font-size:13px;">Поставщик:</span> 
+                <span style="color:#777; font-weight:normal; font-size:13px;">${translations[currentLang].inc_lbl_sup}</span> 
                 <span style="color:#f1c40f; font-weight:bold; font-size:14px; letter-spacing:0.5px;">${uniqueSuppliers.join(', ')}</span> 
                 
                 <span style="color:#333; margin:0 10px;">|</span> 
                 
-                <span style="color:#777; font-weight:normal; font-size:13px;">Документ:</span> 
+                <span style="color:#777; font-weight:normal; font-size:13px;">${translations[currentLang].inc_lbl_doc}</span> 
                 ${docUiHtml} 
                 
                 <span style="color:#333; margin:0 10px;">|</span> 
                 
-                <span style="color:#777; font-weight:normal; font-size:13px;">Позиций:</span> 
+                <span style="color:#777; font-weight:normal; font-size:13px;">${translations[currentLang].inc_lbl_items}</span> 
                 <span style="color:#f1c40f; font-weight:bold; font-size:14px;">${parsedInvoiceData.length}</span>
             `;
             
