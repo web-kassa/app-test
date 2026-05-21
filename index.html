@@ -1503,7 +1503,20 @@
                 docUiHtml = `<span style="color:#e74c3c; font-weight:bold;">ОШИБКА НОМЕРА</span>`;
             }
 
-            document.getElementById('invoiceMetadata').innerHTML = `Поставщик: <b style="color:#f1c40f;">${uniqueSuppliers.join(', ')}</b> | Документ: ${docUiHtml} | Позиций: ${parsedInvoiceData.length}`;
+            document.getElementById('invoiceMetadata').innerHTML = `
+                <span style="color:#777; font-weight:normal; font-size:13px;">Поставщик:</span> 
+                <span style="color:#f1c40f; font-weight:bold; font-size:14px; letter-spacing:0.5px;">${uniqueSuppliers.join(', ')}</span> 
+                
+                <span style="color:#333; margin:0 10px;">|</span> 
+                
+                <span style="color:#777; font-weight:normal; font-size:13px;">Документ:</span> 
+                ${docUiHtml} 
+                
+                <span style="color:#333; margin:0 10px;">|</span> 
+                
+                <span style="color:#777; font-weight:normal; font-size:13px;">Позиций:</span> 
+                <span style="color:#f1c40f; font-weight:bold; font-size:14px;">${parsedInvoiceData.length}</span>
+            `;
             
             document.getElementById('invoiceTableBody').innerHTML = parsedInvoiceData.map(item => `
                 <tr style="border-bottom:1px solid #333;">
