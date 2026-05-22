@@ -946,7 +946,33 @@
             total();
         }
 
-        function qty(id, d) { const i = cart.find(x => x.id === id); if(i) { i.qty += d; if(i.qty <= 0) rm(id); else update(); } }
+        function qty(id, d) { 
+            const i = cart.find(x => x.id === id); 
+            if(i) { 
+                i.qty += d; 
+                if(i.qty <= 0) {
+                    rm(id); 
+                } else { 
+                    update(); // Перерисовываем корзину с новыми цифрами
+                    
+                    // 1. Виброотклик (для Android-устройств)
+                    if (navigator.vibrate) navigator.vibrate(40);
+                    
+                    // 2. Визуальная вспышка нужной строки
+                    const row = document.getElementById('r-' + id);
+                    if (row) {
+                        // Если d > 0 (плюс) — зеленая вспышка, иначе — красная
+                        row.style.background = d > 0 ? 'var(--bg-success-dim)' : 'var(--bg-danger-dim)';
+                        row.style.transition = 'none'; // Резко включаем цвет
+                        
+                        setTimeout(() => {
+                            row.style.transition = 'background 0.3s'; // Плавно гасим
+                            row.style.background = ''; // Возвращаем родной фон панели
+                        }, 150);
+                    }
+                } 
+            } 
+        }
         function rm(id) { cart = cart.filter(x => x.id !== id); update(); }
         function total() { document.getElementById('ta').innerText = cart.reduce((a, b) => a + (b.price * b.qty), 0).toLocaleString() + ' ₸'; }
 
