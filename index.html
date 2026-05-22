@@ -766,26 +766,43 @@
         function login(user) {
             currentUser = user;
             localStorage.setItem('user_role', user.role);
+            localStorage.setItem('user_uid', user.uid); // Запоминаем кто именно вошел
             document.getElementById('login-screen').style.display = 'none';
             const badge = document.getElementById('cashier-info');
             badge.innerText = `👤 ${user.name.toUpperCase()} (${user.uid})`;
             badge.style.display = 'inline-block';
             clearPin();
             document.getElementById('sb').blur(); 
+            
+            // Мгновенно запрашиваем персональную кассу сразу после успешного входа
+            refreshPosData(); 
         }
 
         function logout() {
             currentUser = null;
             localStorage.removeItem('user_role');
+            localStorage.removeItem('user_uid'); // Стираем данные сессии
             document.getElementById('cashier-info').style.display = 'none';
             document.getElementById('login-screen').style.display = 'flex';
             clearPin();
+            
+            // Визуально обнуляем суммы при выходе, чтобы сменщик их не увидел
+            ['sum-cash','sum-qr','sum-red','sum-card','sum-trans'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.innerText = '0 ₸';
+            });
         }
 
         async function load() {
+            // Читаем, кто сейчас работает, чтобы запросить правильные суммы
+            const savedUid = localStorage.getItem('user_uid') || (currentUser ? currentUser.uid : '');
+            const savedRole = localStorage.getItem('user_role') || '';
+            // Делаем персональный кэш, чтобы продавцы не видели суммы друг друга при перезагрузке
+            const cacheKey = 'totals_cache_' + (savedUid || 'anon');
+
             try {
                 const cachedDb = localStorage.getItem('db_cache');
-                const cachedTotals = localStorage.getItem('totals_cache');
+                const cachedTotals = localStorage.getItem(cacheKey);
                 const cachedStaff = localStorage.getItem('staff_cache'); 
                 if (cachedDb) db = JSON.parse(cachedDb);
                 if (cachedStaff) staffList = JSON.parse(cachedStaff);
@@ -802,9 +819,9 @@
 
             if (!navigator.onLine) return; 
             try {
-                // Касса сообщает серверу, кто именно сейчас авторизован
-const fetchUrl = `${APPS_SCRIPT_URL}?t=${Date.now()}&uid=${currentUser ? currentUser.uid : ''}&role=${localStorage.getItem('user_role') || ''}`;
-const res = await fetch(fetchUrl, { redirect: 'follow' });
+                // Передаем серверу данные авторизованного пользователя
+                const fetchUrl = `${APPS_SCRIPT_URL}?t=${Date.now()}&uid=${savedUid}&role=${savedRole}`;
+                const res = await fetch(fetchUrl, { redirect: 'follow' });
                 const data = await res.json();
                 if (data.items) db = data.items;
                 if (data.staff) {
@@ -824,7 +841,7 @@ const res = await fetch(fetchUrl, { redirect: 'follow' });
                 document.getElementById('sum-trans').innerText= (t.transfer || 0).toLocaleString() + ' ₸';
                 render();
                 localStorage.setItem('db_cache', JSON.stringify(db));
-                localStorage.setItem('totals_cache', JSON.stringify(t));
+                localStorage.setItem(cacheKey, JSON.stringify(t)); // Сохраняем в персональный кэш
             } catch (e) { console.error("Ошибка загрузки данных"); }
         }
 
@@ -1347,6 +1364,10 @@ const res = await fetch(fetchUrl, { redirect: 'follow' });
         function closeReport() { document.getElementById('report-modal').style.display = 'none'; }
 
         function displayAppVersion() {
+            // Жесткий Fallback: если Service Worker спит, показываем актуальную версию
+            const fallbackVersion = "5.4.4";
+            document.getElementById('app-version').innerText = "v: " + fallbackVersion;
+            
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                 const messageChannel = new MessageChannel();
                 messageChannel.port1.onmessage = function(event) {
