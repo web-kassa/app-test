@@ -892,6 +892,27 @@
             } else {
                 cart.push({id: p.id, name: p.name, qty: 1, price: roundedPrice, origPrice: roundedPrice, cost: roundedCost});
             }
+            
+            // --- 1. ВИБРООТКЛИК (для мобильных устройств) ---
+            if (navigator.vibrate) {
+                navigator.vibrate(40); // Легкий, четкий толчок
+            }
+
+            // --- 2. ВИЗУАЛЬНАЯ ВСПЫШКА ---
+            // Находим карточку, по которой кликнули, и на 150мс меняем ей фон
+            const clickedElement = event.currentTarget || event.target.closest('.c-item');
+            if (clickedElement && clickedElement.classList.contains('c-item')) {
+                const originalBg = clickedElement.style.background;
+                // Вспышка (используем наш зеленый акцент, но с прозрачностью, чтобы текст читался)
+                clickedElement.style.background = 'var(--bg-success-dim)'; 
+                clickedElement.style.transition = 'none'; // Убираем плавность для резкой вспышки
+                
+                setTimeout(() => {
+                    clickedElement.style.transition = 'background 0.3s'; // Возвращаем плавность затухания
+                    clickedElement.style.background = originalBg || '';
+                }, 150);
+            }
+
             update();
         }
 
