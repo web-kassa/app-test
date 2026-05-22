@@ -802,7 +802,9 @@
 
             if (!navigator.onLine) return; 
             try {
-                const res = await fetch(APPS_SCRIPT_URL + "?t=" + Date.now(), { redirect: 'follow' });
+                // Касса сообщает серверу, кто именно сейчас авторизован
+const fetchUrl = `${APPS_SCRIPT_URL}?t=${Date.now()}&uid=${currentUser ? currentUser.uid : ''}&role=${localStorage.getItem('user_role') || ''}`;
+const res = await fetch(fetchUrl, { redirect: 'follow' });
                 const data = await res.json();
                 if (data.items) db = data.items;
                 if (data.staff) {
