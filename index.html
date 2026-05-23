@@ -1123,7 +1123,8 @@
                             cart: tx.cart.map(c => ({ name: c.item_name, qty: c.qty, price: c.price })),
                             methodCode: tx.payment_method,
                             time: qTime,
-                            date: qDate
+                            date: qDate,
+                            seller: tx.seller_id // <-- Добавили это поле
                         });
                         localStorage.setItem(key, JSON.stringify(reportData));
                     }
