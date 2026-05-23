@@ -1381,7 +1381,7 @@
                 repList.innerHTML = reportDataToRender.map(h => {
                     let isRet = h.type === 'return';
                     if (isRet) t.return += h.total; else t.sale += h.total;
-                    let itemsHtml = h.cart.map(c => `<div class="hb-item"><span>${c.name} (${c.qty})</span><span>${(c.qty*c.price).toLocaleString()} ₸</span></div>`).join('');
+                    let itemsHtml = h.cart.map(c => `<div class="hb-item" style="gap: 10px;"><span class="swipeable-text">${c.name} (${c.qty})</span><span style="white-space: nowrap; flex-shrink: 0;">${(c.qty*c.price).toLocaleString()} ₸</span></div>`).join('');
                     let timeHtml = h.time.includes('⏳') ? `<span style="color:var(--accent-yellow)">${h.time}</span>` : h.time;
                     return `<div class="hist-block" style="border-left-color: ${colors[h.methodCode] || 'var(--accent-green)'};">
                         <div class="hb-head" style="color: ${colors[h.methodCode] || 'var(--accent-green)'}; gap: 10px;">
