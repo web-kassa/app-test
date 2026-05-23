@@ -272,6 +272,19 @@
         /* --- КНОПКА SOFT SYNC --- */
         @keyframes spin-sync { 100% { transform: rotate(360deg); } }
         .sync-spin { animation: spin-sync 1s linear infinite; color: var(--accent-green) !important; border-color: var(--accent-green) !important; pointer-events: none; }
+    
+    /* Стили для свайпа текста в отчете */
+        .swipeable-text {
+            flex: 1; 
+            min-width: 0; 
+            white-space: nowrap; 
+            overflow-x: auto; 
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .swipeable-text::-webkit-scrollbar {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -1270,7 +1283,8 @@
                             cart: qTx.cart.map(c => ({ name: c.item_name, qty: c.qty, price: c.price })),
                             methodCode: qTx.payment_method,
                             time: qTime + " ⏳",
-                            date: qDate
+                            date: qDate,
+                            seller: qTx.seller_id
                         });
                     }
                 });
@@ -1369,7 +1383,10 @@
                     let itemsHtml = h.cart.map(c => `<div class="hb-item"><span>${c.name} (${c.qty})</span><span>${(c.qty*c.price).toLocaleString()} ₸</span></div>`).join('');
                     let timeHtml = h.time.includes('⏳') ? `<span style="color:var(--accent-yellow)">${h.time}</span>` : h.time;
                     return `<div class="hist-block" style="border-left-color: ${colors[h.methodCode] || 'var(--accent-green)'};">
-                        <div class="hb-head" style="color: ${colors[h.methodCode] || 'var(--accent-green)'};"><span>${timeHtml} | ${isRet ? translations[currentLang].btn_return : translations[currentLang].btn_sale} | ${names[h.methodCode]||h.methodCode}</span><span>${isRet?'-':''}${h.total.toLocaleString()} ₸</span></div>
+                        <div class="hb-head" style="color: ${colors[h.methodCode] || 'var(--accent-green)'}; gap: 10px;">
+                            <span class="swipeable-text">${timeHtml} | ${isRet ? translations[currentLang].btn_return : translations[currentLang].btn_sale} | ${names[h.methodCode]||h.methodCode} | 👤 ${h.seller || 'Анон'}</span>
+                            <span style="white-space: nowrap; flex-shrink: 0;">${isRet?'-':''}${h.total.toLocaleString()} ₸</span>
+                        </div>
                         <div class="${isRet?'hb-type-r':''}">${itemsHtml}</div>
                     </div>`;
                 }).join('');
