@@ -897,7 +897,7 @@
                 const roundedPrice = Math.round(Number(i.price) || 0);
                 
                 return `<div class="c-item" onclick="add('${i.id}')" data-cat="${i.category || ''}">
-                    <div class="i-name" style="display:flex; align-items:center;">${photoBadge} <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${i.name || 'Без названия'}</span></div>
+                    <div class="i-name" style="display:flex; align-items:center;">${photoBadge} <span class="swipeable-text">${i.name || 'Без названия'}</span></div>
                     <div class="i-price">${roundedPrice.toLocaleString()} ₸</div>
                     <div class="i-stock">${Number(i.stock)||0}</div>
                 </div>`;
