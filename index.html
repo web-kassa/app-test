@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>POS Noir v5.4.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         /* =========================================
            ЕДИНЫЙ ЦЕНТР УПРАВЛЕНИЯ ЦВЕТАМИ И ТЕМАМИ
@@ -83,7 +86,10 @@
 
         /* ========================================= */
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Courier New", Courier, monospace; }
+        * { 
+    /* ваши старые параметры (margin, padding и т.д.) остаются */
+    font-family: 'Roboto Condensed', sans-serif !important; 
+}
         
         body { background: var(--bg-body); color: var(--text-main); font-weight: var(--font-weight-main); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; transition: background-color 0.3s; }
         
@@ -285,6 +291,14 @@
         .swipeable-text::-webkit-scrollbar {
             display: none;
         }
+    /* Широкий шрифт для всех цен, сумм и итогов */
+.i-price, 
+.total, 
+.total-sum, 
+.pay-btn,
+.hb-item span:last-child {
+    font-family: 'Roboto', sans-serif !important;
+}
     </style>
 </head>
 <body>
