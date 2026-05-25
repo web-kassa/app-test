@@ -930,10 +930,10 @@
                 const roundedPrice = Math.round(Number(i.price) || 0);
                 
                 return `<div class="c-item" onclick="add('${i.id}')" data-cat="${i.category || ''}">
-                    <div class="i-name" style="display:flex; align-items:center; flex-grow:1; min-width:0; gap: 6px;">
+                    <div class="i-name" style="display:flex; align-items:center; flex: 1; min-width: 0; gap: 6px;">
                         <span style="flex-shrink: 0;">${photoBadge}</span>
-                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1;">${i.name || 'Без названия'}</span>
-                        <span style="color: var(--text-muted); font-size: 12px; font-family: 'Roboto', sans-serif; font-weight: normal; flex-shrink: 0;">#${i.id}</span>
+                        <span class="swipeable-text" style="flex: 1; min-width: 0; color: var(--text-main);">${i.name || 'Без названия'}</span>
+                        <span style="flex-shrink: 0; color: var(--text-muted); font-size: 11px; font-family: 'Roboto', sans-serif; font-weight: normal;">#${i.id}</span>
                     </div>
                     <div class="i-price" style="flex-shrink: 0;">${roundedPrice.toLocaleString()} ₸</div>
                     <div class="i-stock" style="flex-shrink: 0;">${Number(i.stock)||0}</div>
@@ -1017,9 +1017,9 @@
         function update() {
             document.getElementById('cart-list').innerHTML = cart.map((item, idx) => `
                 <div class="cart-row" id="r-${item.id}">
-                    <div class="row-top" style="padding-right: 75px; display: flex; justify-content: flex-start; align-items: center; min-width: 0; gap: 6px;">
-                        <span class="swipeable-text" style="flex: 0 1 auto; color: var(--text-main); font-size: 12px;">${item.name}</span>
-                        <span style="flex-shrink: 0; color: var(--text-muted); font-weight: normal; font-family: 'Roboto', sans-serif; font-size: 11px;">#${item.id}</span>
+                    <div class="row-top" style="padding-right: 85px; display: flex; align-items: center; gap: 6px;">
+                        <span class="swipeable-text" style="flex: 1; min-width: 0; color: var(--text-main); font-size: 12px; font-weight: bold;">${item.name}</span>
+                        <span style="flex-shrink: 0; color: var(--text-muted); font-size: 11px; font-weight: normal; font-family: 'Roboto', sans-serif;">#${item.id}</span>
                     </div>
                     <div class="row-ctrl">
                         <div class="qty-box">
