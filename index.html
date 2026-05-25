@@ -239,11 +239,13 @@
         .row-ctrl { display: flex; justify-content: space-between; align-items: center; }
         
         .cart-row { background: var(--bg-panel); border: 1px solid var(--border-main); border-radius: 4px; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        
         .qty-box { display: flex; align-items: center; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; height: 34px; width: 150px; flex-shrink: 0; overflow: hidden; }
-        .q-btn { background: var(--bg-hover); color: var(--accent-yellow); width: 40px; height: 100%; border: none; font-size: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; }
+        .q-btn { background: var(--bg-hover); color: var(--accent-yellow); width: 40px; flex-shrink: 0; height: 100%; border: none; font-size: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; }
         .q-btn:hover { background: var(--border-light); }
-        .q-val { flex: 1; height: 100%; text-align: center; font-size: 16px; font-weight: bold; background: transparent; border: none; color: var(--text-main); outline: none; border-left: 1px solid var(--border-light); border-right: 1px solid var(--border-light); font-family: 'Roboto', sans-serif; padding: 0; }
-        .p-input { width: 100%; height: 34px; background: var(--bg-card); color: var(--accent-yellow); border: 1px solid var(--border-light); text-align: right; padding: 0 10px; border-radius: 4px; font-size: 16px; font-weight: bold; outline: none; font-family: 'Roboto', sans-serif; }
+        .q-val { flex: 1; min-width: 0; height: 100%; text-align: center; font-size: 16px; font-weight: bold; background: transparent; border: none; color: var(--text-main); outline: none; border-left: 1px solid var(--border-light); border-right: 1px solid var(--border-light); font-family: 'Roboto', sans-serif; padding: 0; box-sizing: border-box; }
+        
+        .p-input { width: 100%; min-width: 0; height: 34px; background: var(--bg-card); color: var(--accent-yellow); border: 1px solid var(--border-light); text-align: right; padding: 0 10px; border-radius: 4px; font-size: 16px; font-weight: bold; outline: none; font-family: 'Roboto', sans-serif; box-sizing: border-box; }
         
         .footer { flex-shrink: 0; padding: 6px 4px; border-top: 1px solid var(--border-main); background: var(--bg-panel); }
         .total-box { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; margin-bottom: 6px; padding: 0 4px; color: var(--text-main); }
@@ -1020,7 +1022,7 @@
             document.getElementById('cart-list').innerHTML = cart.map((item, idx) => `
                 <div class="cart-row" id="r-${item.id}">
                     
-                    <!-- ЭТАЖ 1: Название (слева) + Рек. цена и Крестик (справа) -->
+                    <!-- ЭТАЖ 1 -->
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         
                         <div style="display: flex; align-items: center; gap: 6px; flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: none;">
@@ -1029,12 +1031,13 @@
                         </div>
                         
                         <div style="display: flex; justify-content: flex-end; align-items: center; width: 140px; flex-shrink: 0;">
-                            <span style="color: var(--text-muted); font-size: 12px; font-family: 'Roboto', sans-serif;">${item.origPrice ? item.origPrice.toLocaleString('ru-RU') : item.price.toLocaleString('ru-RU')} ₸</span>
+                            <!-- Добавлено text-decoration: line-through -->
+                            <span style="color: var(--text-muted); font-size: 12px; font-family: 'Roboto', sans-serif; text-decoration: line-through;">${item.origPrice ? item.origPrice.toLocaleString('ru-RU') : item.price.toLocaleString('ru-RU')} ₸</span>
                             <div onclick="rm('${item.id}')" style="color:var(--accent-red); font-size:18px; font-weight:bold; cursor:pointer; margin-left: 12px; line-height: 1; user-select: none;">✕</div>
                         </div>
                     </div>
                     
-                    <!-- ЭТАЖ 2: Кол-во (слева) + Поле ввода (справа) -->
+                    <!-- ЭТАЖ 2 -->
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         
                         <div class="qty-box">
