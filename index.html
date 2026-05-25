@@ -245,7 +245,7 @@
         .q-btn:hover { background: var(--border-light); }
         .q-val { flex: 1; min-width: 0; height: 100%; text-align: center; font-size: 16px; font-weight: bold; background: transparent; border: none; color: var(--text-main); outline: none; border-left: 1px solid var(--border-light); border-right: 1px solid var(--border-light); font-family: 'Roboto', sans-serif; padding: 0; box-sizing: border-box; }
         
-        .p-input { width: 100%; min-width: 0; height: 34px; background: var(--bg-card); color: var(--accent-yellow); border: 1px solid var(--border-light); text-align: right; padding: 0 10px; border-radius: 4px; font-size: 16px; font-weight: bold; outline: none; font-family: 'Roboto', sans-serif; box-sizing: border-box; }
+        .p-input { width: 100%; min-width: 0; height: 34px; background: var(--bg-card); color: var(--accent-yellow); border: 1px solid var(--border-light); text-align: right; padding: 0 24px 0 10px; border-radius: 4px; font-size: 16px; font-weight: bold; outline: none; font-family: 'Roboto', sans-serif; box-sizing: border-box; }
         
         .footer { flex-shrink: 0; padding: 6px 4px; border-top: 1px solid var(--border-main); background: var(--bg-panel); }
         .total-box { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; margin-bottom: 6px; padding: 0 4px; color: var(--text-main); }
@@ -1022,7 +1022,6 @@
             document.getElementById('cart-list').innerHTML = cart.map((item, idx) => `
                 <div class="cart-row" id="r-${item.id}">
                     
-                    <!-- ЭТАЖ 1 -->
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         
                         <div style="display: flex; align-items: center; gap: 6px; flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: none;">
@@ -1030,14 +1029,12 @@
                             <span style="color: var(--text-muted); font-size: 11px; font-family: 'Roboto', sans-serif; font-weight: normal;">#${item.id}</span>
                         </div>
                         
-                        <div style="display: flex; justify-content: flex-end; align-items: center; width: 140px; flex-shrink: 0;">
-                            <!-- Умное зачеркивание цены -->
+                        <div style="display: flex; justify-content: flex-end; align-items: center; width: 110px; flex-shrink: 0;">
                             <span style="color: var(--text-muted); font-size: 12px; font-family: 'Roboto', sans-serif; text-decoration: ${item.origPrice && item.origPrice !== item.price ? 'line-through' : 'none'};">${item.origPrice ? item.origPrice.toLocaleString('ru-RU') : item.price.toLocaleString('ru-RU')} ₸</span>
-                            <div onclick="rm('${item.id}')" style="color:var(--accent-red); font-size:18px; font-weight:bold; cursor:pointer; margin-left: 12px; line-height: 1; user-select: none;">✕</div>
+                            <div onclick="rm('${item.id}')" style="color:var(--accent-red); font-size:18px; font-weight:bold; cursor:pointer; margin-left: 10px; line-height: 1; user-select: none;">✕</div>
                         </div>
                     </div>
                     
-                    <!-- ЭТАЖ 2 -->
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         
                         <div class="qty-box">
@@ -1046,8 +1043,9 @@
                             <button class="q-btn" onclick="qty('${item.id}',1)">+</button>
                         </div>
                         
-                        <div style="width: 140px; flex-shrink: 0;">
+                        <div style="position: relative; width: 110px; flex-shrink: 0;">
                             <input type="text" inputmode="numeric" class="p-input" value="${item.price.toLocaleString('ru-RU')}" onfocus="handleFocus(this, 'r-${item.id}')" oninput="cart[${idx}].price=parseFloat(this.value.replace(/\\s/g, '').replace(',', '.'))||0; total()" onchange="update()">
+                            <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px; pointer-events: none; font-family: 'Roboto', sans-serif; font-weight: bold;">₸</span>
                         </div>
                     </div>
 
