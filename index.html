@@ -1019,27 +1019,29 @@
             document.getElementById('cart-list').innerHTML = cart.map((item, idx) => `
                 <div class="cart-row" id="r-${item.id}">
                     
-                    <div class="row-top" style="display: flex; align-items: center; gap: 6px; padding-right: 60px;">
+                    <div class="row-top" style="display: flex; align-items: center; gap: 6px;">
                         <div style="display: flex; align-items: center; gap: 6px; flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: none;">
                             <span style="color: var(--text-main); font-size: 12px; font-weight: bold;">${item.name}</span>
                             <span style="color: var(--text-muted); font-size: 11px; font-weight: normal; font-family: 'Roboto', sans-serif;">#${item.id}</span>
                         </div>
                     </div>
                     
-                    <div class="row-ctrl" style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                    <div class="row-ctrl" style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; gap: 8px;">
                         
-                        <div class="qty-box" style="flex-shrink: 0;">
+                        <div class="qty-box" style="flex-shrink: 0; width: 100px;">
                             <button class="q-btn" onclick="qty('${item.id}',-1)">-</button>
                             <input type="text" inputmode="numeric" class="q-val" value="${item.qty.toLocaleString('ru-RU')}" onfocus="handleFocus(this, 'r-${item.id}')" oninput="cart[${idx}].qty=parseInt(this.value.replace(/\\s/g, ''))||0; total()" onchange="update()">
                             <button class="q-btn" onclick="qty('${item.id}',1)">+</button>
                         </div>
                         
-                        <div onclick="rm('${item.id}')" style="color:var(--accent-red); font-size:20px; font-weight:bold; cursor:pointer; padding: 0 15px; display: flex; align-items: center; justify-content: center; user-select: none;">✕</div>
-                        
-                        <div style="position: relative; flex-shrink: 0;">
-                            <span style="position: absolute; bottom: calc(100% + 2px); right: 0; color: var(--text-muted); font-size: 10px; white-space: nowrap; pointer-events: none;">${item.origPrice ? item.origPrice.toLocaleString('ru-RU') : item.price.toLocaleString('ru-RU')} ₸</span>
-                            <input type="text" inputmode="numeric" class="p-input" value="${item.price.toLocaleString('ru-RU')}" onfocus="handleFocus(this, 'r-${item.id}')" oninput="cart[${idx}].price=parseFloat(this.value.replace(/\\s/g, '').replace(',', '.'))||0; total()" onchange="update()">
+                        <div style="display: flex; align-items: center; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; padding: 0 8px; flex: 1; height: 32px; overflow: hidden;">
+                            
+                            ${item.origPrice && item.origPrice !== item.price ? `<span style="color: var(--text-muted); font-size: 11px; text-decoration: line-through; white-space: nowrap; margin-right: 5px; font-family: 'Roboto', sans-serif;">${item.origPrice.toLocaleString('ru-RU')}</span>` : ''}
+                            
+                            <input type="text" inputmode="numeric" class="p-input" value="${item.price.toLocaleString('ru-RU')}" onfocus="handleFocus(this, 'r-${item.id}')" oninput="cart[${idx}].price=parseFloat(this.value.replace(/\\s/g, '').replace(',', '.'))||0; total()" onchange="update()" style="border: none !important; background: transparent !important; padding: 0 !important; width: 100%; min-width: 0;">
                         </div>
+                        
+                        <div onclick="rm('${item.id}')" style="color:var(--accent-red); font-size:22px; font-weight:bold; cursor:pointer; user-select:none; line-height: 1; flex-shrink: 0; padding-left: 2px;">✕</div>
 
                     </div>
                 </div>`).join('');
