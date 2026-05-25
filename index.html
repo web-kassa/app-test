@@ -934,13 +934,19 @@
                 const roundedPrice = Math.round(Number(i.price) || 0);
                 
                 return `<div class="c-item" onclick="add('${i.id}')" data-cat="${i.category || ''}">
-                    <div class="i-name" style="display:flex; align-items:center; flex: 1; min-width: 0; gap: 6px;">
-                        <span style="flex-shrink: 0;">${photoBadge}</span>
-                        <span class="swipeable-text" style="flex: 1; min-width: 0; color: var(--text-main);">${i.name || 'Без названия'}</span>
-                        <span style="flex-shrink: 0; color: var(--text-muted); font-size: 11px; font-family: 'Roboto', sans-serif; font-weight: normal;">#${i.id}</span>
+                    <div class="i-name" style="display:flex; align-items:center; flex: 1; min-width: 0;">
+                        ${photoBadge} 
+                        
+                        <div style="display: flex; align-items: center; gap: 6px; flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: none;">
+                            <span style="color: var(--text-main); font-size: 13px;">${i.name || 'Без названия'}</span>
+                            <span style="color: var(--text-muted); font-size: 11px; font-family: 'Roboto', sans-serif; font-weight: normal;">#${i.id}</span>
+                        </div>
+                        
                     </div>
-                    <div class="i-price" style="flex-shrink: 0;">${roundedPrice.toLocaleString()} ₸</div>
-                    <div class="i-stock" style="flex-shrink: 0;">${Number(i.stock)||0}</div>
+                    
+                    <div class="i-price" style="width: auto; min-width: 60px; white-space: nowrap; flex-shrink: 0; margin-left: 6px;">${roundedPrice.toLocaleString('ru-RU')} ₸</div>
+                    
+                    <div class="i-stock" style="flex-shrink: 0; margin-left: 6px;">${Number(i.stock)||0}</div>
                 </div>`;
             }).join('');
             
