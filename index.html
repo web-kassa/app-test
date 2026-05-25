@@ -1045,7 +1045,7 @@
                         
                         <div style="position: relative; width: 110px; flex-shrink: 0;">
                             <input type="text" inputmode="numeric" class="p-input" value="${item.price.toLocaleString('ru-RU')}" onfocus="handleFocus(this, 'r-${item.id}')" oninput="cart[${idx}].price=parseFloat(this.value.replace(/\\s/g, '').replace(',', '.'))||0; total()" onchange="update()">
-                            <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px; pointer-events: none; font-family: 'Roboto', sans-serif; font-weight: bold;">₸</span>
+                            <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--accent-yellow); font-size: 14px; pointer-events: none; font-family: 'Roboto', sans-serif; font-weight: bold;">₸</span>
                         </div>
                     </div>
 
