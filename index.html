@@ -238,11 +238,11 @@
         .row-top { font-size: 11px; font-weight: bold; color: var(--text-muted); margin-bottom: 4px; display: flex; justify-content: space-between; gap: 10px; }
         .row-ctrl { display: flex; justify-content: space-between; align-items: center; }
         
-        .qty-box { display: flex; align-items: center; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; height: 38px; overflow: hidden; }
+        .qty-box { display: flex; align-items: center; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; height: 32px; overflow: hidden; }
         .q-btn { background: var(--bg-hover); color: var(--accent-yellow); width: 38px; height: 100%; border: none; font-size: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .q-btn:hover { background: var(--border-light); }
         .q-val { width: 80px; height: 100%; text-align: center; font-size: 16px; font-weight: bold; background: transparent; border: none; color: var(--text-main); outline: none; border-left: 1px solid var(--border-light); border-right: 1px solid var(--border-light); }
-        .p-input { width: 85px; height: 38px; background: var(--bg-card); color: var(--accent-yellow); border: 1px solid var(--border-light); text-align: right; padding: 8px; border-radius: 4px; font-size: 15px; font-weight: bold; outline: none; }
+        .p-input { width: 85px; height: 32px; background: var(--bg-card); color: var(--accent-yellow); border: 1px solid var(--border-light); text-align: right; padding: 0 8px; border-radius: 4px; font-size: 15px; font-weight: bold; outline: none; }
         
         .footer { flex-shrink: 0; padding: 6px 4px; border-top: 1px solid var(--border-main); background: var(--bg-panel); }
         .total-box { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; margin-bottom: 6px; padding: 0 4px; color: var(--text-main); }
@@ -1019,16 +1019,19 @@
         function update() {
             document.getElementById('cart-list').innerHTML = cart.map((item, idx) => `
                 <div class="cart-row" id="r-${item.id}">
-                    <div class="row-top" style="padding-right: 75px;">${item.name}</div>
+                    <div class="row-top" style="padding-right: 75px; display: flex; align-items: center; min-width: 0;">
+                        <span class="swipeable-text" style="flex-shrink: 1; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
+                        <span class="inline-art" style="flex-shrink: 0;">#${item.id}</span>
+                    </div>
                     <div class="row-ctrl">
                         <div class="qty-box">
                             <button class="q-btn" onclick="qty('${item.id}',-1)">-</button>
-                            <input type="text" inputmode="numeric" class="q-val" value="${item.qty}" onfocus="handleFocus(this, 'r-${item.id}')" oninput="cart[${idx}].qty=parseInt(this.value)||0; total()">
+                            <input type="text" inputmode="numeric" class="q-val" value="${item.qty.toLocaleString('ru-RU')}" onfocus="handleFocus(this, 'r-${item.id}')" oninput="cart[${idx}].qty=parseInt(this.value.replace(/\\s/g, ''))||0; total()" onchange="update()">
                             <button class="q-btn" onclick="qty('${item.id}',1)">+</button>
                         </div>
                         <div style="position: relative;">
-                            <span style="position: absolute; bottom: calc(100% + 4px); right: 0; color: var(--text-muted); font-size: 10px; white-space: nowrap; pointer-events: none;">${item.origPrice ? item.origPrice.toLocaleString() : item.price.toLocaleString()} ₸</span>
-                            <input type="text" inputmode="numeric" class="p-input" value="${item.price}" onfocus="handleFocus(this, 'r-${item.id}')" oninput="cart[${idx}].price=parseFloat(this.value)||0; total()">
+                            <span style="position: absolute; bottom: calc(100% + 2px); right: 0; color: var(--text-muted); font-size: 10px; white-space: nowrap; pointer-events: none;">${item.origPrice ? item.origPrice.toLocaleString('ru-RU') : item.price.toLocaleString('ru-RU')} ₸</span>
+                            <input type="text" inputmode="numeric" class="p-input" value="${item.price.toLocaleString('ru-RU')}" onfocus="handleFocus(this, 'r-${item.id}')" oninput="cart[${idx}].price=parseFloat(this.value.replace(/\\s/g, '').replace(',', '.'))||0; total()" onchange="update()">
                         </div>
                         <div onclick="rm('${item.id}')" style="color:var(--accent-red);padding:3px;font-size:18px; cursor: pointer;">✕</div>
                     </div>
