@@ -1387,7 +1387,8 @@
             const names = { 'cash': translations[currentLang].pay_cash, 'qr_kaspi': 'Kaspi QR', 'installment': 'Kaspi Red', 'pos_terminal': translations[currentLang].pay_card, 'transfer': translations[currentLang].pay_trans };
             let t = { sale: 0, return: 0 };
             
-            if (start !== end && (!currentUser || currentUser.role === 'manager')) {
+            // Теперь красивый отчет с поиском, группировкой и средней ценой работает ВСЕГДА (даже за 1 день)
+            if (true) {
                 searchInput.parentElement.style.display = 'block'; 
                 searchInput.value = ''; searchInput.placeholder = translations[currentLang].search_placeholder;
 
@@ -1397,7 +1398,7 @@
 
                 reportDataToRender.forEach(h => {
                     let isRet = h.type === 'return';
-                    let sellerId = h.seller || 'Анон'; // Берем ID продавца
+                    let sellerId = h.seller || 'Анон'; 
                     h.cart.forEach(c => {
                         if (!aggregated[c.name]) aggregated[c.name] = { name: c.name, salesQty: 0, salesSum: 0, returnsQty: 0, returnsSum: 0, sellers: {} };
                         if (!aggregated[c.name].sellers[sellerId]) aggregated[c.name].sellers[sellerId] = { salesQty: 0, salesSum: 0, returnsQty: 0, returnsSum: 0 };
@@ -1422,7 +1423,6 @@
                     const netSum = item.salesSum - item.returnsSum;
                     let detailsHtml = '';
 
-                    // Перебираем всех продавцов, кто продавал этот товар
                     for (let seller in item.sellers) {
                         let s = item.sellers[seller];
                         
@@ -1450,7 +1450,7 @@
                             <div class="item-card" onclick="this.parentElement.classList.toggle('active')">
                                 <div class="swipeable-text" style="font-size: 12px; color: var(--text-main);">${item.name}</div>
                                 <div style="text-align: right; color: var(--text-muted); font-size: 12px;">${netQty}</div>
-                                <div style="text-align: right; font-weight: 700; font-size: 13px; color: ${netSum < 0 ? 'var(--accent-red)' : 'var(--accent-green)'}; gap: 4px;">${netSum.toLocaleString()} <span class="dropdown-icon" style="font-size:8px">▼</span></div>
+                                <div style="text-align: right; font-weight: 700; font-size: 13px; color: ${netSum < 0 ? 'var(--accent-red)' : 'var(--accent-green)'}; display: flex; align-items: center; justify-content: flex-end; gap: 4px;">${netSum.toLocaleString()} <span class="dropdown-icon" style="font-size:8px">▼</span></div>
                             </div>
                             <div class="item-details"><div style="padding: 6px 8px;">${detailsHtml}</div></div>
                         </div>`;
@@ -1469,33 +1469,8 @@
                         <div style="text-align: right; font-size: 12px; font-weight: bold; color: var(--text-muted);">${tSalesQty - tReturnsQty}</div>
                         <div style="text-align: right; font-size: 15px; font-weight: 900; color: var(--text-main); white-space: nowrap;">${(tSalesSum - tReturnsSum).toLocaleString()} ₸</div>
                     </div>`;
-            } else {
-                searchInput.parentElement.style.display = 'none'; 
-                
-                reportDataToRender.sort((a, b) => {
-                    if (a.time > b.time) return -1;
-                    if (a.time < b.time) return 1;
-                    return 0;
-                });
-
-                repList.innerHTML = reportDataToRender.map(h => {
-                    let isRet = h.type === 'return';
-                    if (isRet) t.return += h.total; else t.sale += h.total;
-                    let itemsHtml = h.cart.map(c => `<div class="hb-item" style="gap: 10px;"><span class="swipeable-text">${c.name} (${c.qty})</span><span style="white-space: nowrap; flex-shrink: 0;">${(c.qty*c.price).toLocaleString()} ₸</span></div>`).join('');
-                    let timeHtml = h.time.includes('⏳') ? `<span style="color:var(--accent-yellow)">${h.time}</span>` : h.time;
-                    return `<div class="hist-block" style="border-left-color: ${colors[h.methodCode] || 'var(--accent-green)'};">
-                        <div class="hb-head" style="color: ${colors[h.methodCode] || 'var(--accent-green)'}; gap: 10px;">
-                            <span class="swipeable-text">${timeHtml} | ${isRet ? translations[currentLang].btn_return : translations[currentLang].btn_sale} | ${names[h.methodCode]||h.methodCode} | 👤 ${h.seller || 'Анон'}</span>
-                            <span style="white-space: nowrap; flex-shrink: 0;">${isRet?'-':''}${h.total.toLocaleString()} ₸</span>
-                        </div>
-                        <div class="${isRet?'hb-type-r':''}">${itemsHtml}</div>
-                    </div>`;
-                }).join('');
-                
-                totalsBox.innerHTML = `<div style="display:flex; justify-content:space-between; color:var(--accent-green); font-size:12px; margin-bottom:4px;"><span>${translations[currentLang].report_sales.toUpperCase()}:</span><span>${t.sale.toLocaleString()} ₸</span></div>
-                    <div style="display:flex; justify-content:space-between; color:var(--accent-red); font-size:12px; margin-bottom:4px;"><span>${translations[currentLang].report_returns.toUpperCase()}:</span><span>${t.return.toLocaleString()} ₸</span></div>
-                    <div style="display:flex; justify-content:space-between; color:var(--text-main); font-weight:bold; font-size:16px; margin-top:8px; border-top:1px dashed var(--border-focus); padding-top:8px;"><span>${translations[currentLang].report_in_register}</span><span>${(t.sale - t.return).toLocaleString()} ₸</span></div>`;
             }
+            total();
         }
 
         function closeReport() { document.getElementById('report-modal').style.display = 'none'; }
