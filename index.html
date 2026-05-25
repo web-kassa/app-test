@@ -250,12 +250,10 @@
         .footer { flex-shrink: 0; padding: 6px 4px; border-top: 1px solid var(--border-main); background: var(--bg-panel); }
         .total-box { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; margin-bottom: 6px; padding: 0 4px; color: var(--text-main); }
         
-        .btns { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
-        .pay { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50px; border: none; border-radius: 4px; color: #ffffff; cursor: pointer; padding: 2px; }
-        .pay-title { font-weight: bold; font-size: 8px; text-transform: uppercase; margin-bottom: 2px; }
-        .pay-sum { font-size: 9px; font-weight: 900; opacity: 0.9; white-space: nowrap; }
-        
-        .p-cash { background: #27ae60; } .p-qr { background: #c0392b; } .p-red { background: #8e44ad; } .p-card { background: #2980b9; } .p-trans { background: #f39c12; color: #000000; } .p-trans .pay-sum { color: #000000; }
+        .pay-row-5 { display: flex; gap: 4px; width: 100%; }
+        .pay-row-5 .pay-btn { flex: 1; border-radius: 4px; border: none; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50px; padding: 6px 0; color: #ffffff; cursor: pointer; min-width: 0; overflow: hidden; }
+        .pay-row-5 .pay-title { font-size: 9px; font-weight: bold; letter-spacing: -0.3px; white-space: nowrap; text-transform: uppercase; }
+        .pay-row-5 .pay-sum { font-size: 11px; font-family: 'Roboto', sans-serif; font-weight: bold; margin-top: 2px; white-space: nowrap; }
 
         /* --- МОДАЛЬНЫЕ ОКНА --- */
         .modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-overlay); z-index: 100; display: none; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
@@ -391,12 +389,27 @@
         <div id="cart-list"></div>
         <div class="footer">
             <div class="total-box"><span id="tl" data-i18n="total_label_sale">ИТОГО:</span><span id="ta">0 ₸</span></div>
-            <div class="btns">
-                <button class="pay p-cash" onclick="initPay('cash', 'Наличные')"><span class="pay-title" data-i18n="pay_cash">Нал</span><span class="pay-sum" id="sum-cash">0 ₸</span></button>
-                <button class="pay p-qr" onclick="initPay('qr_kaspi', 'Kaspi QR')"><span class="pay-title" data-i18n="pay_qr">QR</span><span class="pay-sum" id="sum-qr">0 ₸</span></button>
-                <button class="pay p-red" onclick="initPay('installment', 'Kaspi Red')"><span class="pay-title" data-i18n="pay_red">Red</span><span class="pay-sum" id="sum-red">0 ₸</span></button>
-                <button class="pay p-card" onclick="initPay('pos_terminal', 'Карта')"><span class="pay-title" data-i18n="pay_card">Карт</span><span class="pay-sum" id="sum-card">0 ₸</span></button>
-                <button class="pay p-trans" onclick="initPay('transfer', 'Перевод')"><span class="pay-title" data-i18n="pay_trans">Пер</span><span class="pay-sum" id="sum-trans">0 ₸</span></button>
+            <div class="pay-row-5">
+                <button class="pay-btn" style="background-color: #2ecc71;" onclick="initPay('cash', 'Наличные')">
+                    <span class="pay-title">НАЛИЧНЫЕ</span>
+                    <span class="pay-sum" id="sum-cash">0 ₸</span>
+                </button>
+                <button class="pay-btn" style="background-color: #e74c3c;" onclick="initPay('qr_kaspi', 'Kaspi QR')">
+                    <span class="pay-title">QR</span>
+                    <span class="pay-sum" id="sum-qr">0 ₸</span>
+                </button>
+                <button class="pay-btn" style="background-color: #9b59b6;" onclick="initPay('installment', 'Рассрочка')">
+                    <span class="pay-title">РАССРОЧКА</span>
+                    <span class="pay-sum" id="sum-red">0 ₸</span>
+                </button>
+                <button class="pay-btn" style="background-color: #2980b9;" onclick="initPay('pos_terminal', 'Терминал')">
+                    <span class="pay-title">ТЕРМИНАЛ</span>
+                    <span class="pay-sum" id="sum-card">0 ₸</span>
+                </button>
+                <button class="pay-btn" style="background-color: #f39c12;" onclick="initPay('transfer', 'Перевод')">
+                    <span class="pay-title">ПЕРЕВОД</span>
+                    <span class="pay-sum" id="sum-trans">0 ₸</span>
+                </button>
             </div>
         </div>
     </div>
