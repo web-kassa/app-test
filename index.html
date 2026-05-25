@@ -391,23 +391,23 @@
             <div class="total-box"><span id="tl" data-i18n="total_label_sale">ИТОГО:</span><span id="ta">0 ₸</span></div>
             <div class="pay-row-5">
                 <button class="pay-btn" style="background-color: #2ecc71;" onclick="initPay('cash', 'Наличные')">
-                    <span class="pay-title">НАЛИЧНЫЕ</span>
+                    <span class="pay-title" data-i18n="pay_cash_full">НАЛИЧНЫЕ</span>
                     <span class="pay-sum" id="sum-cash">0 ₸</span>
                 </button>
                 <button class="pay-btn" style="background-color: #e74c3c;" onclick="initPay('qr_kaspi', 'Kaspi QR')">
-                    <span class="pay-title">QR</span>
+                    <span class="pay-title" data-i18n="pay_qr_full">QR</span>
                     <span class="pay-sum" id="sum-qr">0 ₸</span>
                 </button>
                 <button class="pay-btn" style="background-color: #9b59b6;" onclick="initPay('installment', 'Рассрочка')">
-                    <span class="pay-title">РАССРОЧКА</span>
+                    <span class="pay-title" data-i18n="pay_red_full">РАССРОЧКА</span>
                     <span class="pay-sum" id="sum-red">0 ₸</span>
                 </button>
                 <button class="pay-btn" style="background-color: #2980b9;" onclick="initPay('pos_terminal', 'Терминал')">
-                    <span class="pay-title">ТЕРМИНАЛ</span>
+                    <span class="pay-title" data-i18n="pay_card_full">ТЕРМИНАЛ</span>
                     <span class="pay-sum" id="sum-card">0 ₸</span>
                 </button>
                 <button class="pay-btn" style="background-color: #f39c12;" onclick="initPay('transfer', 'Перевод')">
-                    <span class="pay-title">ПЕРЕВОД</span>
+                    <span class="pay-title" data-i18n="pay_trans_full">ПЕРЕВОД</span>
                     <span class="pay-sum" id="sum-trans">0 ₸</span>
                 </button>
             </div>
@@ -568,7 +568,12 @@
                 inc_err_sheet_no_table: "[Лист {0}]: нет таблицы с цифрами", cat_all: "Все",
                 server_dup: "Накладная с номером {0} уже была проведена ранее.",
                 server_no_db: "База не привязана. Нажмите POS Setup -> Привязать базу.",
-                theme_toggle: "СМЕНА ТЕМЫ (ДЕНЬ/НОЧЬ)", settings_theme: "ОФОРМЛЕНИЕ"
+                theme_toggle: "СМЕНА ТЕМЫ (ДЕНЬ/НОЧЬ)", settings_theme: "ОФОРМЛЕНИЕ",
+                pay_cash_full: "НАЛИЧНЫЕ",
+                pay_qr_full: "QR",
+                pay_red_full: "РАССРОЧКА",
+                pay_card_full: "ТЕРМИНАЛ",
+                pay_trans_full: "ПЕРЕВОД"
             },
             kz: {
                 btn_sale: "САТУ", btn_return: "ҚАЙТАРУ", search_placeholder: "ІЗДЕУ...",
@@ -617,7 +622,12 @@
                 inc_err_sheet_no_table: "[{0} парағы]: цифрлары бар кесте жоқ", cat_all: "Барлығы",
                 server_dup: "{0} нөмірлі жүкқұжат бұрын қабылданған.",
                 server_no_db: "Дерекқор байланыспаған. POS Setup -> Привязать базу түймесін басыңыз.",
-                theme_toggle: "ТАҚЫРЫПТЫ АУЫСТЫРУ (КҮН/ТҮН)", settings_theme: "КӨРІНІС"
+                theme_toggle: "ТАҚЫРЫПТЫ АУЫСТЫРУ (КҮН/ТҮН)", settings_theme: "КӨРІНІС",
+                pay_cash_full: "ҚОЛМА ҚОЛ",
+                pay_qr_full: "QR",
+                pay_red_full: "БӨЛІП ТӨЛЕУ",
+                pay_card_full: "ТЕРМИНАЛ",
+                pay_trans_full: "АУДАРЫМ"
             }
         };
 
