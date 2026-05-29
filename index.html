@@ -1799,7 +1799,7 @@
 
                         if (firstDataRowIdx > 0) {
                             let headerRowIdx = firstDataRowIdx - 1;
-                            let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1 };
+                            let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1, cbm: -1, weight: -1 };
                             
                             let headerRow = rows[headerRowIdx] || [];
                             
@@ -1811,6 +1811,8 @@
                                 if (colMap.price === -1 && isSynonym(val, 'price')) colMap.price = j;
                                 if (colMap.brand === -1 && isSynonym(val, 'brand')) colMap.brand = j;
                                 if (colMap.desc === -1 && isSynonym(val, 'name')) colMap.desc = j;
+                                if (colMap.cbm === -1 && isSynonym(val, 'cbm')) colMap.cbm = j;
+                                if (colMap.weight === -1 && isSynonym(val, 'weight')) colMap.weight = j;
                             }
 
                             if (colMap.code !== -1 && colMap.qty !== -1 && colMap.price !== -1) {
@@ -1840,6 +1842,8 @@
                                             item_name: `${brandStr} ${descStr}`.trim(), 
                                             qty: qty, 
                                             cost: price,
+                                            cbm: colMap.cbm !== -1 ? (parseFloat(row[colMap.cbm]) || 0) : 0,
+                                            weight: colMap.weight !== -1 ? (parseFloat(row[colMap.weight]) || 0) : 0,
                                             staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
                                         };
                                         parsedInvoiceData.push(itemData);
@@ -1936,6 +1940,8 @@
                         ${uniqueDocs.length > 1 ? `<br><span style="font-size:9px; color:var(--text-muted);">[Инвойс: ${item.doc_no}]</span>` : ''}
                     </td>
                     <td style="padding:5px;">${item.qty}</td>
+                    <td style="padding:5px;">${item.cbm}</td>
+                    <td style="padding:5px;">${item.weight}</td>
                     <td style="padding:5px;">$${item.cost}</td>
                 </tr>`).join('');
             
@@ -2072,6 +2078,8 @@
                                 <th style="padding: 8px;" data-i18n="income_code">Код</th>
                                 <th style="padding: 8px;" data-i18n="income_name">Наименование</th>
                                 <th style="padding: 8px;" data-i18n="income_qty">Кол-во</th>
+                                <th style="padding: 8px;">Объем (CBM)</th>
+                                <th style="padding: 8px;">Вес (кг)</th>
                                 <th style="padding: 8px;" data-i18n="income_price">Цена ($)</th>
                             </tr>
                         </thead>
