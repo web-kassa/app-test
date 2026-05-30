@@ -1806,6 +1806,11 @@
                             for (let j = 0; j < headerRow.length; j++) {
                                 let val = String(headerRow[j] || '').trim();
                                 
+                                // НОВОЕ: Защита от колонок с общими итогами
+                                if (val.toLowerCase().includes('total') || val.toLowerCase().includes('итого') || val.toLowerCase().includes('общий')) {
+                                    continue; 
+                                }
+                                
                                 if (colMap.code === -1 && isSynonym(val, 'id')) colMap.code = j;
                                 if (colMap.qty === -1 && isSynonym(val, 'qty')) colMap.qty = j;
                                 if (colMap.price === -1 && isSynonym(val, 'price')) colMap.price = j;
@@ -1858,38 +1863,42 @@
                                     if (!isNaN(qty) && !isNaN(price)) {
                                         
                                         // --- НАЧАЛО НОВОГО БЛОКА ОЧИСТКИ И МАТЕМАТИКИ ---
-                                        // Захватываем сырой CBM и страхуемся от запятых
                                         let rawCbm = colMap.cbm !== -1 ? (parseFloat((row[colMap.cbm] || '0').toString().replace(',', '.')) || 0) : 0;
                                         let finalCbm = rawCbm;
 
-                                        // Математический поиск: где Объем за 1 шт, а где Общий?
                                         if (colMap.cbm !== -1 && qty > 0) {
                                             let leftVal = parseFloat((row[colMap.cbm - 1] || '0').toString().replace(',', '.')) || 0;
                                             let rightVal = parseFloat((row[colMap.cbm + 1] || '0').toString().replace(',', '.')) || 0;
                                             
-                                            if (leftVal > 0 && leftVal < rawCbm && Math.abs((leftVal * qty) - rawCbm) < 0.2) {
+                                            if (leftVal > 0 && rawCbm > 0 && Math.abs((leftVal * qty) - rawCbm) < 0.2) {
                                                 finalCbm = leftVal; 
-                                            } else if (rightVal > 0 && rightVal < rawCbm && Math.abs((rightVal * qty) - rawCbm) < 0.2) {
+                                            } else if (rightVal > 0 && rawCbm > 0 && Math.abs((rightVal * qty) - rawCbm) < 0.2) {
                                                 finalCbm = rightVal; 
+                                            } else if (rawCbm === 0) {
+                                                if (leftVal > 0 && leftVal < 1) finalCbm = leftVal;
+                                                else if (rightVal > 0 && rightVal < 1) finalCbm = rightVal;
                                             }
                                         }
                                         
-                                        // Захват веса с защитой от запятых
                                         let finalWeight = colMap.weight !== -1 ? (parseFloat((row[colMap.weight] || '0').toString().replace(',', '.')) || 0) : 0;
+
+                                        // НОВОЕ: Защита от пустого имени
+                                        let finalName = `${brandStr} ${descStr}`.trim();
+                                        if (finalName === "") finalName = "Товар " + codeCell;
 
                                         const itemData = {
                                             doc_no: file_doc_no, 
                                             supplier: file_supplier, 
                                             item_id: codeCell,
-                                            item_name: `${brandStr} ${descStr}`.trim(), 
+                                            item_name: finalName, 
                                             qty: qty, 
                                             cost: price,
-                                            cbm: finalCbm,       // <-- ТЕПЕРЬ ТУТ ВСЕГДА ПРАВИЛЬНЫЙ ШТУЧНЫЙ ОБЪЕМ
-                                            weight: finalWeight, // <-- ТЕПЕРЬ ТУТ ЧИСТЫЙ ВЕС
+                                            cbm: finalCbm,
+                                            weight: finalWeight,
                                             staff_id: currentUser ? currentUser.uid : 'Auto-Import' 
                                         };
                                         // --- КОНЕЦ НОВОГО БЛОКА ---
-                                        
+
                                         parsedInvoiceData.push(itemData);
                                         invoiceGroups[file_doc_no].items.push(itemData);
                                         itemsInFile++;
