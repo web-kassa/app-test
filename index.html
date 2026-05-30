@@ -1844,6 +1844,7 @@
                                 let lastCode = "UNKNOWN";
                                 let lastBrand = "";
                                 let lastDesc = "";
+                                let varMemory = {}; // НОВОЕ: Память для параметров (размер, вылет и тд)
 
                                 for (let i = firstDataRowIdx; i < rows.length; i++) {
                                     const row = rows[i];
@@ -1895,14 +1896,39 @@
                                         
                                         let finalWeight = colMap.weight !== -1 ? (parseFloat((row[colMap.weight] || '0').toString().replace(',', '.')) || 0) : 0;
 
-                                        // НОВОЕ: Защита от пустого имени
                                         let finalName = `${brandStr} ${descStr}`.trim();
-                                        if (finalName === "") finalName = "Товар " + codeCell;
+                                        if (finalName === "") finalName = codeCell;
+
+                                        // --- НОВОЕ: ГЕНЕРАТОР СОСТАВНОГО АРТИКУЛА (С ПАМЯТЬЮ) ---
+                                        let variations = [];
+                                        for (let key in varMap) {
+                                            let colIdx = varMap[key];
+                                            let cellVal = String(row[colIdx] || '').trim();
+                                            
+                                            if (cellVal !== '') {
+                                                // Нормализуем и сохраняем в память
+                                                cellVal = cellVal.toUpperCase().replace(/\*/g, 'X').replace(/\s+/g, '');
+                                                varMemory[key] = cellVal; 
+                                                variations.push({ key: key.toUpperCase(), val: cellVal });
+                                            } else if (varMemory[key]) {
+                                                // Если ячейка пустая, берем значение из памяти верхних строк
+                                                variations.push({ key: key.toUpperCase(), val: varMemory[key] });
+                                            }
+                                        }
+                                        
+                                        // Сортируем и склеиваем
+                                        variations.sort((a, b) => a.key.localeCompare(b.key));
+                                        
+                                        let compositeId = codeCell;
+                                        for (let v of variations) {
+                                            compositeId += "_" + v.val; 
+                                        }
+                                        // ---------------------------------------------
 
                                         const itemData = {
                                             doc_no: file_doc_no, 
                                             supplier: file_supplier, 
-                                            item_id: codeCell,
+                                            item_id: compositeId, // <-- ТЕПЕРЬ ТУТ СОСТАВНОЙ ID
                                             item_name: finalName, 
                                             qty: qty, 
                                             cost: price,
@@ -2008,7 +2034,7 @@
                     <td style="padding:5px;">${item.qty}</td>
                     <td style="padding:5px;">${item.cbm}</td>
                     <td style="padding:5px;">${item.weight}</td>
-                    <td style="padding:5px;">$${item.cost}</td>
+                    <td style="padding:5px;">${item.cost}</td>
                 </tr>`).join('');
             
             document.getElementById('invoicePreviewArea').style.display = 'flex';
@@ -2146,7 +2172,7 @@
                                 <th style="padding: 8px;" data-i18n="income_qty">Кол-во</th>
                                 <th style="padding: 8px;">Объем (CBM)</th>
                                 <th style="padding: 8px;">Вес (кг)</th>
-                                <th style="padding: 8px;" data-i18n="income_price">Цена ($)</th>
+                                <th style="padding: 8px;" data-i18n="income_price">Цена</th>
                             </tr>
                         </thead>
                         <tbody id="invoiceTableBody"></tbody>
