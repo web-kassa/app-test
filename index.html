@@ -1801,12 +1801,16 @@
                             let headerRowIdx = firstDataRowIdx - 1;
                             let colMap = { code: -1, brand: -1, desc: -1, qty: -1, price: -1, cbm: -1, weight: -1 };
                             
-                            let headerRow = rows[headerRowIdx] || [];
+                            let headerRow = rows[headerRowIdx] || []; // <-- ЭТУ СТРОКУ ОСТАВЛЯЕМ!
                             
+                            // НОВОЕ: Переменные для динамических параметров (размер, вылет, цвет и т.д.)
+                            let baseKeys = ['id', 'qty', 'price', 'brand', 'name', 'cbm', 'weight', 'exclude'];
+                            let varMap = {}; 
+
                             for (let j = 0; j < headerRow.length; j++) {
                                 let val = String(headerRow[j] || '').trim();
                                 
-                                // НОВОЕ: Защита от колонок с общими итогами
+                                // Защита от колонок с общими итогами
                                 if (val.toLowerCase().includes('total') || val.toLowerCase().includes('итого') || val.toLowerCase().includes('общий')) {
                                     continue; 
                                 }
@@ -1818,6 +1822,15 @@
                                 if (colMap.desc === -1 && isSynonym(val, 'name')) colMap.desc = j;
                                 if (colMap.cbm === -1 && isSynonym(val, 'cbm')) colMap.cbm = j;
                                 if (colMap.weight === -1 && isSynonym(val, 'weight')) colMap.weight = j;
+
+                                // НОВОЕ: Ищем все остальные параметры из листа Synonyms
+                                if (window.synonymsData) {
+                                    for (let key in window.synonymsData) {
+                                        if (!baseKeys.includes(key)) {
+                                            if (isSynonym(val, key)) varMap[key] = j;
+                                        }
+                                    }
+                                }
                             }
 
                             if (colMap.code !== -1 && colMap.qty !== -1 && colMap.price !== -1) {
