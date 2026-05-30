@@ -566,7 +566,7 @@
                 income_code: "Код",
                 income_name: "Наименование",
                 income_qty: "Кол-во",
-                income_price: "Цена ($)",
+                income_price: "Цена",
                 income_confirm: "✅ ОПРИХОДОВАТЬ НА СКЛАД",
                 income_meta_supplier: "Поставщик",
                 income_meta_doc: "Документ",
@@ -620,7 +620,7 @@
                 income_code: "Коды",
                 income_name: "Атауы",
                 income_qty: "Саны",
-                income_price: "Бағасы ($)",
+                income_price: "Бағасы",
                 income_confirm: "✅ ҚОЙМАҒА КІРІСТЕУ",
                 income_meta_supplier: "Жеткізуші",
                 income_meta_doc: "Құжат",
@@ -1824,8 +1824,8 @@
                                 if (colMap.weight === -1 && isSynonym(val, 'weight')) colMap.weight = j;
 
                                 // НОВОЕ: Ищем все остальные параметры из листа Synonyms
-                                if (window.synonymsData) {
-                                    for (let key in window.synonymsData) {
+                                if (invoiceSynonyms) {
+                                    for (let key in invoiceSynonyms) {
                                         if (!baseKeys.includes(key)) {
                                             if (isSynonym(val, key)) varMap[key] = j;
                                         }
