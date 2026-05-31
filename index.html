@@ -1641,6 +1641,10 @@
             event.target.classList.add('selected');
             document.getElementById('dropdownList').classList.remove('show');
             document.getElementById('dropdownHeader').classList.remove('active');
+            
+            // НОВОЕ: Меняем валюту в шапке таблицы
+            let headerSpan = document.getElementById('dynamicCurrencySpan');
+            if (headerSpan) headerSpan.innerText = value;
         }
 
         document.addEventListener('click', function(event) {
@@ -2172,7 +2176,9 @@
                                 <th style="padding: 8px;" data-i18n="income_qty">Кол-во</th>
                                 <th style="padding: 8px;">Объем (CBM)</th>
                                 <th style="padding: 8px;">Вес (кг)</th>
-                                <th style="padding: 8px;" data-i18n="income_price">Цена</th>
+                                <th style="padding: 8px;">
+    <span data-i18n="income_price">Цена</span> (<span id="dynamicCurrencySpan" style="color: var(--accent-yellow);">USD</span>)
+</th>
                             </tr>
                         </thead>
                         <tbody id="invoiceTableBody"></tbody>
