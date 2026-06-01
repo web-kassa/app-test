@@ -2069,7 +2069,10 @@
 
             btn.disabled = true; btn.style.opacity = '0.5';
             statusContainer.style.display = 'block';
-            statusBar.style.width = '10%'; statusPercent.innerText = '10%';
+            
+            // Стартуем с 5%
+            let currentDisplayPct = 5;
+            statusBar.style.width = '5%'; statusPercent.innerText = '5%';
 
             const totalSteps = Object.keys(invoiceGroups).length;
             let currentStep = 0;
@@ -2077,10 +2080,28 @@
             for (let docNo of Object.keys(invoiceGroups)) {
                 currentStep++;
                 let group = invoiceGroups[docNo];
+                
+                // Высчитываем целевой процент для этого шага (но оставим 5% на финализацию)
+                let targetPct = Math.round((currentStep / totalSteps) * 95);
 
-                statusText.innerText = `Отправка ${docNo}... (${currentStep}/${totalSteps})`;
-                let pct = Math.round((currentStep / totalSteps) * 100);
-                statusBar.style.width = pct + '%'; statusPercent.innerText = pct + '%';
+                statusText.innerText = `Связь с базой данных... ⏳`;
+                
+                // ЗАПУСКАЕМ АНИМАЦИЮ ОЖИДАНИЯ СЕРВЕРА
+                let fakeProgress = setInterval(() => {
+                    let remaining = targetPct - currentDisplayPct;
+                    if (remaining > 0) {
+                        // Полоска замедляется по мере приближения к концу
+                        let step = Math.max(1, Math.floor(remaining / 10)); 
+                        currentDisplayPct += step;
+                        statusBar.style.width = currentDisplayPct + '%';
+                        statusPercent.innerText = currentDisplayPct + '%';
+
+                        // Меняем текст, чтобы развлекать и информировать пользователя
+                        if (currentDisplayPct > 20 && currentDisplayPct < 50) statusText.innerText = "Запись товаров в таблицу... 📝";
+                        if (currentDisplayPct >= 50 && currentDisplayPct < 85) statusText.innerText = "Создаем архив оригинала на Google Drive... 📂";
+                        if (currentDisplayPct >= 85) statusText.innerText = "Завершаем обработку... Осталось чуть-чуть ⏳";
+                    }
+                }, 600);
 
                 try {
                     const response = await fetch(APPS_SCRIPT_URL, {
@@ -2095,10 +2116,14 @@
                     });
                     
                     const res = await response.json();
+                    
+                    clearInterval(fakeProgress); // Останавливаем анимацию
+                    
                     if (!res.success) {
                         throw new Error(res.error);
                     }
                 } catch (err) {
+                    clearInterval(fakeProgress); // Останавливаем анимацию при ошибке
                     statusText.innerText = translations[currentLang].inc_server_err; 
                     statusText.style.color = "var(--accent-red)";
                     
@@ -2117,8 +2142,11 @@
                 }
             }
 
+            // Жестко ставим 100% только когда сервер ответил УСПЕХОМ
             statusBar.style.width = '100%'; statusPercent.innerText = '100%';
-            statusText.innerText = "Архив создан! Склад обновлен.";
+            statusText.innerText = "✅ Архив создан! Склад обновлен.";
+            statusText.style.color = "var(--accent-green)";
+            
             setTimeout(() => { 
                 alert("✅ Все накладные успешно проведены, оригиналы сохранены в папки!"); 
                 toggleIncomeModule(); 
