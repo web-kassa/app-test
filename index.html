@@ -2139,7 +2139,7 @@
                 // Высчитываем целевой процент для этого шага (но оставим 5% на финализацию)
                 let targetPct = Math.round((currentStep / totalSteps) * 95);
 
-                statusText.innerText = `Связь с базой данных... ⏳`;
+                statusText.innerText = translations[currentLang].inc_status_db;
                 
                 // ЗАПУСКАЕМ АНИМАЦИЮ ОЖИДАНИЯ СЕРВЕРА
                 let fakeProgress = setInterval(() => {
