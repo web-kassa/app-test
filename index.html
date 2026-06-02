@@ -613,7 +613,8 @@
                 inc_status_write: "Запись товаров в таблицу... 📝",
                 inc_status_drive: "Создаем архив на Google Drive... 📂",
                 inc_status_almost: "Завершаем обработку... Осталось чуть-чуть ⏳",
-                inc_status_done: "✅ Архив создан! Склад обновлен."
+                inc_status_done: "✅ Архив создан! Склад обновлен.",
+                server_dup_fp: "Файл с точно таким же составом товаров уже был загружен ранее! Проверьте базу."
             },
             kz: {
                 btn_sale: "САТУ", btn_return: "ҚАЙТАРУ", search_placeholder: "ІЗДЕУ...",
@@ -689,7 +690,8 @@
                 inc_status_write: "Тауарларды кестеге жазу... 📝",
                 inc_status_drive: "Google Drive-та архив жасау... 📂",
                 inc_status_almost: "Өңдеуді аяқтау... Сәл қалды ⏳",
-                inc_status_done: "✅ Архив жасалды! Қойма жаңартылды."
+                inc_status_done: "✅ Архив жасалды! Қойма жаңартылды.",
+                server_dup_fp: "Құрамы дәл осындай файл бұрын жүктелген! Базаны тексеріңіз."
             }
         };
 
@@ -2193,6 +2195,9 @@
                         errorMsg = translations[currentLang].server_dup.replace('{0}', dupMatch[1].trim());
                     } else if (errorMsg.includes("База не привязана")) {
                         errorMsg = translations[currentLang].server_no_db;
+                    } else if (errorMsg.includes("с точно таким же составом")) {
+                        // НОВОЕ: Перехватываем ошибку цифрового слепка
+                        errorMsg = translations[currentLang].server_dup_fp;
                     }
 
                     alert(translations[currentLang].inc_send_err + errorMsg);
