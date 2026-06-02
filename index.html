@@ -2159,6 +2159,9 @@
                 }, 600);
 
                 try {
+                    // НОВОЕ: Генерируем уникальный слепок содержимого инвойса
+                    let fp = "FP_" + group.items.length + "шт_" + group.items.reduce((sum, i) => sum + (Number(i.qty) || 0), 0) + "кол_" + (group.items[0].item_name || "").replace(/\s/g, '').substring(0, 10);
+
                     const response = await fetch(APPS_SCRIPT_URL, {
                         method: 'POST',
                         body: JSON.stringify({ 
@@ -2166,7 +2169,8 @@
                             data: group.items,
                             files: group.originalFiles, 
                             docNo: docNo, 
-                            currency: document.getElementById('invoiceCurrency').value
+                            currency: document.getElementById('invoiceCurrency').value,
+                            fingerprint: fp // Передаем слепок на сервер
                         })
                     });
                     
