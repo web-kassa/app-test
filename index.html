@@ -591,7 +591,29 @@
                 pay_qr_full: "QR",
                 pay_red_full: "РАССРОЧКА",
                 pay_card_full: "ТЕРМИНАЛ",
-                pay_trans_full: "ПЕРЕВОД"
+                pay_trans_full: "ПЕРЕВОД",
+                income_cbm: "Объем (CBM)",
+                income_weight: "Вес (кг)",
+                inc_file_selected: "Выбрано файлов: ",
+                inc_file_placeholder: "Нажмите для выбора Excel",
+                inc_no_file: "Пожалуйста, выберите файл!",
+                inc_file_corrupted: "Файл поврежден или не является таблицей",
+                inc_empty_cart: "Корзина пуста!",
+                inc_doc_empty: "Номер документа не может быть пустым!",
+                inc_all_done: "✅ Все накладные успешно проведены, оригиналы сохранены в папки!",
+                err_server: "Ошибка сервера",
+                err_network: "Ошибка сети",
+                pin_block: "БЛОКИРОВКА. ОЖИДАНИЕ: ",
+                pin_wrong: "НЕВЕРНЫЙ ПИН-КОД",
+                loading_items: "Загрузка товаров...",
+                status_offline: " (OFFLINE)",
+                status_net_err: " (ОШИБКА СЕТИ - КЭШ)",
+                photo_err: "⚠️ ФОТО НЕДОСТУПНО<br><br>Google отклонил запрос или файл удален",
+                inc_status_db: "Связь с базой данных... ⏳",
+                inc_status_write: "Запись товаров в таблицу... 📝",
+                inc_status_drive: "Создаем архив на Google Drive... 📂",
+                inc_status_almost: "Завершаем обработку... Осталось чуть-чуть ⏳",
+                inc_status_done: "✅ Архив создан! Склад обновлен."
             },
             kz: {
                 btn_sale: "САТУ", btn_return: "ҚАЙТАРУ", search_placeholder: "ІЗДЕУ...",
@@ -630,7 +652,7 @@
                 pin_wrong: "ҚАТЕ ПИН-КОД", pin_wrong_left: "ҚАТЕ ПИН. ҚАЛДЫ: ", pin_conn_error: "ҚОСЫЛУ ҚАТЕСІ",
                 inc_file_selected: "Таңдалған файлдар: ", inc_file_placeholder: "Excel файлын таңдау үшін басыңыз",
                 inc_err_no_doc: "инвойс нөмірі жоқ", inc_err_no_sup: "жеткізуші жоқ", inc_err_no_table: "тауарлар кестесі табылмады",
-                inc_err_missing: "бас жағында ({0}-жол) табылмады: ", inc_err_no_items: "кестеден тауарларды оқу мүмкінপ্রবাসী болмады",
+                inc_err_missing: "бас жағында ({0}-жол) табылмады: ", inc_err_no_items: "кестеден тауарларды оқу мүмкін болмады",
                 inc_success: "{0} поз. анықталды", inc_err_doc_format: "НӨМІР ҚАТЕСІ",
                 inc_lbl_sup: "Жеткізуші:", inc_lbl_doc: "Құжат:", inc_lbl_items: "Позициялар:",
                 inc_empty_cart: "Себет бос!", inc_doc_empty: "Құжат нөмірі бос болмауы керек!",
@@ -645,7 +667,29 @@
                 pay_qr_full: "QR",
                 pay_red_full: "БӨЛІП ТӨЛЕУ",
                 pay_card_full: "ТЕРМИНАЛ",
-                pay_trans_full: "АУДАРЫМ"
+                pay_trans_full: "АУДАРЫМ",
+                income_cbm: "Көлемі (CBM)",
+                income_weight: "Салмағы (кг)",
+                inc_file_selected: "Таңдалған файлдар: ",
+                inc_file_placeholder: "Excel файлын таңдау үшін басыңыз",
+                inc_no_file: "Файлды таңдаңыз!",
+                inc_file_corrupted: "Файл зақымдалған немесе кесте емес",
+                inc_empty_cart: "Себет бос!",
+                inc_doc_empty: "Құжат нөмірі бос болмауы керек!",
+                inc_all_done: "✅ Барлық жүкқұжаттар сәтті өтті, түпнұсқалар папкаларға сақталды!",
+                err_server: "Сервер қатесі",
+                err_network: "Желі қатесі",
+                pin_block: "БҰҒАТТАУ. КҮТУ: ",
+                pin_wrong: "ҚАТЕ ПИН-КОД",
+                loading_items: "Тауарларды жүктеу...",
+                status_offline: " (ОФФЛАЙН)",
+                status_net_err: " (ЖЕЛІ ҚАТЕСІ - КЭШ)",
+                photo_err: "⚠️ ФОТО ҚОЛЖЕТІМСІЗ<br><br>Google сұрауды қабылдамады немесе файл жойылды",
+                inc_status_db: "Дерекқормен байланыс... ⏳",
+                inc_status_write: "Тауарларды кестеге жазу... 📝",
+                inc_status_drive: "Google Drive-та архив жасау... 📂",
+                inc_status_almost: "Өңдеуді аяқтау... Сәл қалды ⏳",
+                inc_status_done: "✅ Архив жасалды! Қойма жаңартылды."
             }
         };
 
@@ -714,11 +758,11 @@
                         
                         err.style.visibility = 'hidden';
                         field.style.color = 'var(--accent-yellow)'; 
-                        err.innerText = "НЕВЕРНЫЙ ПИН-КОД";
+                        err.innerText = translations[currentLang].pin_wrong;
                     } else {
                         const mins = Math.floor(remaining / 60);
                         const secs = remaining % 60;
-                        err.innerText = `БЛОКИРОВКА. ОЖИДАНИЕ: ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                        err.innerText = translations[currentLang].pin_block + `${mins}:${secs < 10 ? '0' : ''}${secs}`;
                     }
                 }, 1000);
                 return true;
@@ -966,7 +1010,7 @@
 
         function render() {
             const catalog = document.getElementById('catalog');
-            if (!db || db.length === 0) return catalog.innerHTML = '<div style="color:var(--text-muted); padding:20px; text-align:center;">Загрузка товаров...</div>';
+            if (!db || db.length === 0) return catalog.innerHTML = '<div style="color:var(--text-muted); padding:20px; text-align:center;">' + translations[currentLang].loading_items + '</div>';
             catalog.innerHTML = db.map(i => {
                 const hasPhoto = i.img && i.img.toString().length > 10;
                 // Компактная иконка вместо слова ФОТО с правильным курсором
@@ -1343,12 +1387,12 @@
                 const cachedReport = localStorage.getItem(cacheKey);
                 if (cachedReport) {
                     reportDataToRender = JSON.parse(cachedReport);
-                    if (!document.getElementById('rep-header-title').innerText.includes("OFFLINE")) {
-                        document.getElementById('rep-header-title').innerText += " (OFFLINE)";
+                    if (!document.getElementById('rep-header-title').innerText.includes(translations[currentLang].status_offline)) {
+                        document.getElementById('rep-header-title').innerText += translations[currentLang].status_offline;
                     }
                 } else {
-                    if (!document.getElementById('rep-header-title').innerText.includes("OFFLINE")) {
-                        document.getElementById('rep-header-title').innerText += " (OFFLINE)";
+                    if (!document.getElementById('rep-header-title').innerText.includes(translations[currentLang].status_offline)) {
+                        document.getElementById('rep-header-title').innerText += translations[currentLang].status_offline;
                     }
                 }
             } else {
@@ -1366,8 +1410,8 @@
                     const cachedReport = localStorage.getItem(cacheKey);
                     if (cachedReport) {
                         reportDataToRender = JSON.parse(cachedReport);
-                        if (!document.getElementById('rep-header-title').innerText.includes("ОШИБКА СЕТИ")) {
-                            document.getElementById('rep-header-title').innerText += " (ОШИБКА СЕТИ - КЭШ)";
+                        if (!document.getElementById('rep-header-title').innerText.includes(translations[currentLang].status_net_err)) {
+                            document.getElementById('rep-header-title').innerText += translations[currentLang].status_net_err;
                         }
                     }
                 }
@@ -1405,7 +1449,6 @@
             const names = { 'cash': translations[currentLang].pay_cash, 'qr_kaspi': 'Kaspi QR', 'installment': 'Kaspi Red', 'pos_terminal': translations[currentLang].pay_card, 'transfer': translations[currentLang].pay_trans };
             let t = { sale: 0, return: 0 };
             
-            // Теперь красивый отчет с поиском, группировкой и средней ценой работает ВСЕГДА (даже за 1 день)
             if (true) {
                 searchInput.parentElement.style.display = 'block'; 
                 searchInput.value = ''; searchInput.placeholder = translations[currentLang].search_placeholder;
@@ -1531,6 +1574,7 @@
         });
 
         let selectedItemId = null, tempBase64 = null; 
+        let selectedItemId = null, tempBase64 = null; 
         function openItemMenu(id) {
             selectedItemId = id; tempBase64 = null; 
             const item = db.find(x => x.id === id);
@@ -1546,7 +1590,7 @@
                     safeUrl = 'https://drive.google.com/thumbnail?id=' + match[0] + '&sz=w800';
                 }
                 
-                preview.innerHTML = `<img src="${safeUrl}" onclick="openFullscreen('${safeUrl}')" onerror="this.onerror=null; this.parentNode.innerHTML='<div style=\\'color:var(--accent-yellow); padding: 15px; border: 1px dashed var(--accent-yellow); border-radius: 8px; font-size: 11px; font-weight: bold;\\'>⚠️ ФОТО НЕДОСТУПНО<br><br>Google отклонил запрос или файл удален</div>';" style="max-width: 100%; max-height: 250px; border-radius: 8px; border: 1px solid var(--border-focus); margin-top: 10px; cursor: zoom-in;">`;
+                preview.innerHTML = `<img src="${safeUrl}" onclick="openFullscreen('${safeUrl}')" onerror="this.onerror=null; this.parentNode.innerHTML='<div style=\\'color:var(--accent-yellow); padding: 15px; border: 1px dashed var(--accent-yellow); border-radius: 8px; font-size: 11px; font-weight: bold;\\'>' + translations[currentLang].photo_err + '</div>';" style="max-width: 100%; max-height: 250px; border-radius: 8px; border: 1px solid var(--border-focus); margin-top: 10px; cursor: zoom-in;">`;
                 
                 document.getElementById('btn-take-photo').style.display = 'none'; 
                 document.getElementById('btn-retake-photo').style.display = 'block';
@@ -1591,8 +1635,8 @@
             try {
                 const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'upload_photo', item_id: selectedItemId, base64: tempBase64 }) });
                 if ((await res.json()).success) { btnSaveDb.innerText = "✅ " + translations[currentLang].btn_saved; setTimeout(() => { location.reload(); }, 800); }
-                else { alert("Ошибка сервера"); btnSaveDb.innerHTML = '💾 ' + translations[currentLang].btn_save_db; btnSaveDb.disabled = false; }
-            } catch (e) { alert("Ошибка сети"); btnSaveDb.innerHTML = '💾 ' + translations[currentLang].btn_save_db; btnSaveDb.disabled = false; }
+                else { alert(translations[currentLang].err_server); btnSaveDb.innerHTML = '💾 ' + translations[currentLang].btn_save_db; btnSaveDb.disabled = false; }
+            } catch (e) { alert(translations[currentLang].err_network); btnSaveDb.innerHTML = '💾 ' + translations[currentLang].btn_save_db; btnSaveDb.disabled = false; }
         }
 
         let fsScale = 1, fsX = 0, fsY = 0, fsStartX = 0, fsStartY = 0, fsInitDist = 0, fsInitScale = 1, isDragging = false;
@@ -1660,14 +1704,14 @@
             const fileNameText = document.getElementById('fileNameTextCompact');
             const containerBox = document.getElementById('fileInputLabel');
             if (input.files && input.files.length > 0) {
-                fileNameText.innerText = input.files.length > 1 ? "Выбрано файлов: " + input.files.length : input.files[0].name;
+                fileNameText.innerText = input.files.length > 1 ? translations[currentLang].inc_file_selected + input.files.length : input.files[0].name;
                 fileNameText.classList.remove('file-placeholder-text');
                 fileNameText.style.color = 'var(--text-main)';          
                 containerBox.style.borderColor = 'var(--accent-green)'; 
                 containerBox.style.background = 'var(--bg-success-dim)';  
                 containerBox.style.color = 'var(--text-main)';  
             } else {
-                fileNameText.innerText = "Нажмите для выбора Excel";
+                fileNameText.innerText = translations[currentLang].inc_file_placeholder;
                 fileNameText.classList.add('file-placeholder-text');
                 fileNameText.style.color = 'var(--text-placeholder)';
                 containerBox.style.borderColor = 'var(--border-focus)';
@@ -1696,7 +1740,7 @@
 
         async function processInvoiceFile() {
             const fileInput = document.getElementById('invoiceFileInput');
-            if (!fileInput.files.length) return alert("Пожалуйста, выберите файл!");
+            if (!fileInput.files.length) return alert(translations[currentLang].inc_no_file);
 
             parsedInvoiceData = []; 
             invoiceGroups = {}; 
@@ -1971,7 +2015,7 @@
 
                 } catch (err) {
                     console.error("Ошибка чтения файла: " + file.name, err);
-                    fileErrors.push("Файл поврежден или не является таблицей");
+                    fileErrors.push(translations[currentLang].inc_file_corrupted);
                 }
 
                 if (file_doc_no === 'UNKNOWN') fileErrors.push(translations[currentLang].inc_err_no_doc);
@@ -2046,14 +2090,14 @@
         }
 
         async function sendInvoiceToBackend() {
-            if (parsedInvoiceData.length === 0) return alert("Корзина пуста!");
+            if (parsedInvoiceData.length === 0) return alert(translations[currentLang].inc_empty_cart);
 
             const docKeys = Object.keys(invoiceGroups);
             const docInput = document.getElementById('ui-doc-no');
             
             if (docKeys.length === 1 && docInput) {
                 const finalDocNo = docInput.value.trim();
-                if (!finalDocNo) return alert("Номер документа не может быть пустым!");
+                if (!finalDocNo) return alert(translations[currentLang].inc_doc_empty);
                 if (finalDocNo !== docKeys[0]) {
                     invoiceGroups[finalDocNo] = invoiceGroups[docKeys[0]];
                     delete invoiceGroups[docKeys[0]];
@@ -2097,9 +2141,9 @@
                         statusPercent.innerText = currentDisplayPct + '%';
 
                         // Меняем текст, чтобы развлекать и информировать пользователя
-                        if (currentDisplayPct > 20 && currentDisplayPct < 50) statusText.innerText = "Запись товаров в таблицу... 📝";
-                        if (currentDisplayPct >= 50 && currentDisplayPct < 85) statusText.innerText = "Создаем архив оригинала на Google Drive... 📂";
-                        if (currentDisplayPct >= 85) statusText.innerText = "Завершаем обработку... Осталось чуть-чуть ⏳";
+                        if (currentDisplayPct > 20 && currentDisplayPct < 50) statusText.innerText = translations[currentLang].inc_status_write;
+                        if (currentDisplayPct >= 50 && currentDisplayPct < 85) statusText.innerText = translations[currentLang].inc_status_drive;
+                        if (currentDisplayPct >= 85) statusText.innerText = translations[currentLang].inc_status_almost;
                     }
                 }, 600);
 
@@ -2144,11 +2188,11 @@
 
             // Жестко ставим 100% только когда сервер ответил УСПЕХОМ
             statusBar.style.width = '100%'; statusPercent.innerText = '100%';
-            statusText.innerText = "✅ Архив создан! Склад обновлен.";
+            statusText.innerText = translations[currentLang].inc_status_done;
             statusText.style.color = "var(--accent-green)";
             
             setTimeout(() => { 
-                alert("✅ Все накладные успешно проведены, оригиналы сохранены в папки!"); 
+                alert(translations[currentLang].inc_all_done); 
                 toggleIncomeModule(); 
                 if (typeof load === 'function') load(); 
             }, 800);
@@ -2202,8 +2246,8 @@
                                 <th style="padding: 8px;" data-i18n="income_code">Код</th>
                                 <th style="padding: 8px;" data-i18n="income_name">Наименование</th>
                                 <th style="padding: 8px;" data-i18n="income_qty">Кол-во</th>
-                                <th style="padding: 8px;">Объем (CBM)</th>
-                                <th style="padding: 8px;">Вес (кг)</th>
+                                <th style="padding: 8px;" data-i18n="income_cbm">Объем (CBM)</th>
+                                <th style="padding: 8px;" data-i18n="income_weight">Вес (кг)</th>
                                 <th style="padding: 8px;">
     <span data-i18n="income_price">Цена</span> (<span id="dynamicCurrencySpan" style="color: var(--accent-yellow);">USD</span>)
 </th>
