@@ -1819,10 +1819,21 @@
                                 let row = rows[i] || [];
                                 for (let j = 0; j < row.length; j++) {
                                     if (isSynonym(row[j], 'invoice_no')) {
-                                        file_doc_no = String(row[j+1] || 'UNKNOWN').trim();
+                                        let val = String(row[j+1] || '').trim();
+                                        if (val && val !== 'UNKNOWN') file_doc_no = val;
                                     }
                                 }
                             }
+                        }
+
+                        // НОВОЕ: Если оригинальный номер не найден — ставим заглушку (Дата+Время)
+                        if (file_doc_no === 'UNKNOWN' || file_doc_no === '') {
+                            let now = new Date();
+                            let day = String(now.getDate()).padStart(2, '0');
+                            let month = String(now.getMonth() + 1).padStart(2, '0');
+                            let hours = String(now.getHours()).padStart(2, '0');
+                            let minutes = String(now.getMinutes()).padStart(2, '0');
+                            file_doc_no = `IN-${day}.${month}-${hours}${minutes}`;
                         }
 
                         let firstDataRowIdx = -1;
@@ -1974,8 +1985,9 @@
 
                                         const itemData = {
                                             doc_no: file_doc_no, 
+                                            category: file_doc_no, // НОВОЕ: Единая категория, равная номеру партии
                                             supplier: file_supplier, 
-                                            item_id: compositeId, // <-- ТЕПЕРЬ ТУТ СОСТАВНОЙ ID
+                                            item_id: compositeId, 
                                             item_name: finalName, 
                                             qty: qty, 
                                             cost: price,
