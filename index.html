@@ -1863,10 +1863,17 @@
                             
                             let headerRow = rows[headerRowIdx] || []; // <-- ЭТУ СТРОКУ ОСТАВЛЯЕМ!
                             
-                            // НОВОЕ: Переменные для динамических параметров (размер, вылет, цвет и т.д.)
-                            let baseKeys = ['id', 'qty', 'price', 'brand', 'name', 'cbm', 'weight', 'exclude'];
-                            let varMap = {}; 
-
+                            // УНИФИКАЦИЯ: Читаем системные исключения напрямую из базы Synonyms
+                            let baseKeys = [];
+                            if (invoiceSynonyms && invoiceSynonyms['system_ignore_in_id']) {
+                                // Если строка есть в базе, берем её
+                                baseKeys = invoiceSynonyms['system_ignore_in_id'].map(s => s.toLowerCase().trim());
+                            } else {
+                                // Запасной вариант (предохранитель), если в базе еще нет такой строки
+                                baseKeys = ['id', 'qty', 'price', 'cost', 'cbm', 'weight', 'barcode', 'exclude', 'supplier_keywords', 'invoice_no', 'contract_no'];
+                            }
+                            let varMap = {};
+                            
                             for (let j = 0; j < headerRow.length; j++) {
                                 let val = String(headerRow[j] || '').trim();
                                 
