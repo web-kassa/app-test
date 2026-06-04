@@ -1875,7 +1875,8 @@
                             let varMap = {};
                             
                             for (let j = 0; j < headerRow.length; j++) {
-                                let val = String(headerRow[j] || '').trim();
+                                // Заменяем невидимые переносы строк (Enter) на пробел, чтобы Synonyms работал чётко
+                                let val = String(headerRow[j] || '').replace(/[\r\n]+/g, ' ').trim();
                                 
                                 // Защита от колонок с общими итогами
                                 if (val.toLowerCase().includes('total') || val.toLowerCase().includes('итого') || val.toLowerCase().includes('общий')) {
@@ -1963,32 +1964,45 @@
                                         
                                         let finalWeight = colMap.weight !== -1 ? (parseFloat((row[colMap.weight] || '0').toString().replace(',', '.')) || 0) : 0;
 
-                                        let finalName = `${brandStr} ${descStr}`.trim();
-                                        if (finalName === "") finalName = codeCell;
+                                        // --- РАЗДЕЛЬНАЯ ГЕНЕРАЦИЯ ID И ИМЕНИ ---
+                                        let allowedForName = ['brand', 'name']; 
+                                        let nameParts = [];
+                                        let idParts = [];
 
-                                        // --- НОВОЕ: ГЕНЕРАТОР СОСТАВНОГО АРТИКУЛА (С ПАМЯТЬЮ) ---
-                                        let variations = [];
                                         for (let key in varMap) {
                                             let colIdx = varMap[key];
                                             let cellVal = String(row[colIdx] || '').trim();
+                                            let activeVal = "";
                                             
+                                            // Память столбцов
                                             if (cellVal !== '') {
-                                                // Нормализуем и сохраняем в память
-                                                cellVal = cellVal.toUpperCase().replace(/\*/g, 'X').replace(/\s+/g, '');
-                                                varMemory[key] = cellVal; 
-                                                variations.push({ key: key.toUpperCase(), val: cellVal });
+                                                varMemory[key] = cellVal;
+                                                activeVal = cellVal;
                                             } else if (varMemory[key]) {
-                                                // Если ячейка пустая, берем значение из памяти верхних строк
-                                                variations.push({ key: key.toUpperCase(), val: varMemory[key] });
+                                                activeVal = varMemory[key];
+                                            }
+                                            
+                                            if (activeVal !== '') {
+                                                // Для длинного ID: убираем пробелы, меняем * на X, сохраняем ключ для сортировки
+                                                let idVal = activeVal.toUpperCase().replace(/\*/g, 'X').replace(/\s+/g, '');
+                                                idParts.push({ key: key.toUpperCase(), val: idVal });
+                                                
+                                                // Для короткого Имени на кассе: берем только бренд и размер
+                                                if (allowedForName.includes(key)) {
+                                                    nameParts.push(activeVal.toUpperCase());
+                                                }
                                             }
                                         }
-                                        
-                                        // Сортируем и склеиваем
-                                        variations.sort((a, b) => a.key.localeCompare(b.key));
-                                        
+
+                                        // 1. Собираем короткое ИМЯ (естественный порядок без мусора)
+                                        let finalName = nameParts.join(' ').trim();
+                                        if (finalName === "") finalName = codeCell;
+
+                                        // 2. Собираем длинный ID (Сортируем ключи по алфавиту - защита от перестановки колонок)
+                                        idParts.sort((a, b) => a.key.localeCompare(b.key));
                                         let compositeId = codeCell;
-                                        for (let v of variations) {
-                                            compositeId += "_" + v.val; 
+                                        for (let p of idParts) {
+                                            compositeId += "_" + p.val;
                                         }
                                         // ---------------------------------------------
 
