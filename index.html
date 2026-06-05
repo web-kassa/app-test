@@ -1891,17 +1891,29 @@
                                 if (colMap.cbm === -1 && isSynonym(val, 'cbm')) colMap.cbm = j;
                                 if (colMap.weight === -1 && isSynonym(val, 'weight')) colMap.weight = j;
 
+                                // --- ГЛАВНАЯ ЗАЩИТА ОТ СОВПАДЕНИЙ (unitPRice != PR) ---
+                                // Проверяем, не является ли эта колонка системной (цена, количество, инвойс и т.д.)
+                                let isSystemColumn = false;
+                                for (let bk of baseKeys) {
+                                    if (isSynonym(val, bk)) {
+                                        isSystemColumn = true;
+                                        break;
+                                    }
+                                }
+
+                                // Если это Цена или Кол-во, мы намертво блокируем её. Она не попадет в генератор ID!
+                                if (isSystemColumn) continue;
+
                                 if (invoiceSynonyms) {
                                     for (let key in invoiceSynonyms) {
                                         let cleanKey = key.trim().toLowerCase();
                                         
-                                        // ИСПРАВЛЕНИЕ ЛОВУШКИ: Запрещаем скрипту сканировать служебную строку как колонку товара!
                                         if (cleanKey === 'system_ignore_in_id') continue;
                                         
                                         if (!baseKeys.includes(cleanKey)) {
                                             if (isSynonym(val, key)) {
-                                                // Пушим в массив: теперь если у нас две колонки 'name', сохранятся обе!
                                                 activeCols.push({ key: cleanKey, colIdx: j });
+                                                break; // Нашли совпадение — выходим, чтобы колонка не привязалась к двум ключам сразу
                                             }
                                         }
                                     }
