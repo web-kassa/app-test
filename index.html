@@ -1863,22 +1863,22 @@
                             
                             let headerRow = rows[headerRowIdx] || []; // <-- ЭТУ СТРОКУ ОСТАВЛЯЕМ!
                             
-                            // УНИФИКАЦИЯ: Читаем системные исключения напрямую из базы Synonyms
+                            // 1. Читаем системные исключения
                             let baseKeys = [];
                             if (invoiceSynonyms && invoiceSynonyms['system_ignore_in_id']) {
-                                // Если строка есть в базе, берем её
                                 baseKeys = invoiceSynonyms['system_ignore_in_id'].map(s => s.toLowerCase().trim());
-                            } else {
-                                // Запасной вариант (предохранитель), если в базе еще нет такой строки
-                                baseKeys = ['id', 'qty', 'price', 'cost', 'cbm', 'weight', 'barcode', 'exclude', 'supplier_keywords', 'invoice_no', 'contract_no'];
                             }
-                            let varMap = {};
+                            // ЖЕСТКИЙ ПРЕДОХРАНИТЕЛЬ (на случай опечаток в Google Таблице)
+                            ['id', 'qty', 'price', 'cost', 'cbm', 'weight', 'barcode', 'exclude', 'supplier_keywords', 'invoice_no', 'contract_no'].forEach(k => {
+                                if (!baseKeys.includes(k)) baseKeys.push(k);
+                            });
+
+                            // 2. ЗАМЕНЯЕМ varMap НА МАССИВ (чтобы размер не затирался моделью)
+                            let activeCols = [];
                             
                             for (let j = 0; j < headerRow.length; j++) {
-                                // Заменяем невидимые переносы строк (Enter) на пробел, чтобы Synonyms работал чётко
                                 let val = String(headerRow[j] || '').replace(/[\r\n]+/g, ' ').trim();
                                 
-                                // Защита от колонок с общими итогами
                                 if (val.toLowerCase().includes('total') || val.toLowerCase().includes('итого') || val.toLowerCase().includes('общий')) {
                                     continue; 
                                 }
@@ -1891,11 +1891,18 @@
                                 if (colMap.cbm === -1 && isSynonym(val, 'cbm')) colMap.cbm = j;
                                 if (colMap.weight === -1 && isSynonym(val, 'weight')) colMap.weight = j;
 
-                                // НОВОЕ: Ищем все остальные параметры из листа Synonyms
                                 if (invoiceSynonyms) {
                                     for (let key in invoiceSynonyms) {
-                                        if (!baseKeys.includes(key)) {
-                                            if (isSynonym(val, key)) varMap[key] = j;
+                                        let cleanKey = key.trim().toLowerCase();
+                                        
+                                        // ИСПРАВЛЕНИЕ ЛОВУШКИ: Запрещаем скрипту сканировать служебную строку как колонку товара!
+                                        if (cleanKey === 'system_ignore_in_id') continue;
+                                        
+                                        if (!baseKeys.includes(cleanKey)) {
+                                            if (isSynonym(val, key)) {
+                                                // Пушим в массив: теперь если у нас две колонки 'name', сохранятся обе!
+                                                activeCols.push({ key: cleanKey, colIdx: j });
+                                            }
                                         }
                                     }
                                 }
@@ -1965,29 +1972,32 @@
                                         let finalWeight = colMap.weight !== -1 ? (parseFloat((row[colMap.weight] || '0').toString().replace(',', '.')) || 0) : 0;
 
                                         // --- РАЗДЕЛЬНАЯ ГЕНЕРАЦИЯ ID И ИМЕНИ ---
-                                        let allowedForName = ['brand', 'name']; 
+                                        let allowedForName = ['brand', 'name', 'size']; // добавил size для надежности
                                         let nameParts = [];
                                         let idParts = [];
 
-                                        for (let key in varMap) {
-                                            let colIdx = varMap[key];
+                                        // Идем по нашему новому массиву activeCols
+                                        for (let col of activeCols) {
+                                            let colIdx = col.colIdx;
+                                            let key = col.key;
+                                            
                                             let cellVal = String(row[colIdx] || '').trim();
                                             let activeVal = "";
                                             
-                                            // Память столбцов
+                                            // Память столбцов (привязываем к номеру колонки, а не к ключу!)
                                             if (cellVal !== '') {
-                                                varMemory[key] = cellVal;
+                                                varMemory[colIdx] = cellVal;
                                                 activeVal = cellVal;
-                                            } else if (varMemory[key]) {
-                                                activeVal = varMemory[key];
+                                            } else if (varMemory[colIdx]) {
+                                                activeVal = varMemory[colIdx];
                                             }
                                             
                                             if (activeVal !== '') {
-                                                // Для длинного ID: убираем пробелы, меняем * на X, сохраняем ключ для сортировки
                                                 let idVal = activeVal.toUpperCase().replace(/\*/g, 'X').replace(/\s+/g, '');
-                                                idParts.push({ key: key.toUpperCase(), val: idVal });
                                                 
-                                                // Для короткого Имени на кассе: берем только бренд и размер
+                                                // Ключ сортировки (добавляем индекс колонки, чтобы одинаковые ключи вроде name не склеились при сортировке)
+                                                idParts.push({ sortKey: key.toUpperCase() + colIdx, val: idVal });
+                                                
                                                 if (allowedForName.includes(key)) {
                                                     nameParts.push(activeVal.toUpperCase());
                                                 }
@@ -1998,8 +2008,8 @@
                                         let finalName = nameParts.join(' ').trim();
                                         if (finalName === "") finalName = codeCell;
 
-                                        // 2. Собираем длинный ID (Сортируем ключи по алфавиту - защита от перестановки колонок)
-                                        idParts.sort((a, b) => a.key.localeCompare(b.key));
+                                        // 2. Собираем длинный ID (Сортируем ключи - защита от перестановки колонок)
+                                        idParts.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
                                         let compositeId = codeCell;
                                         for (let p of idParts) {
                                             compositeId += "_" + p.val;
