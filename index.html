@@ -4,7 +4,7 @@
     <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>POS Noir v5.4.3</title>
+    <title>POS Noir v5.5.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1540,7 +1540,7 @@
 
         function displayAppVersion() {
             // Жесткий Fallback: если Service Worker спит, показываем актуальную версию
-            const fallbackVersion = "5.4.4";
+            const fallbackVersion = "5.5.0";
             document.getElementById('app-version').innerText = "v: " + fallbackVersion;
             
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
