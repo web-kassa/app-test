@@ -1203,7 +1203,8 @@
             const localTime = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU');
             
             const p = {
-                tx_id: tid, tx_type: mode, payment_method: pendingMethod, source: "pos_v5.4.3", created_at: localTime,
+                tx_id: tid, tx_type: mode, payment_method: pendingMethod, source: "pos_v5.5.0", 
+                created_at: localTime,
                 seller_id: currentUser ? currentUser.uid : "S-XX", 
                 cart: cart.map(c => ({item_id:c.id, item_name:c.name, qty:c.qty, price:c.price, cost_price:c.cost}))
             };
@@ -1227,6 +1228,23 @@
                     }
                 }
                 document.getElementById('receipt-modal').style.display = 'none';
+                
+                // ==========================================
+                // НАЧАЛО: Локальное обновление остатков (Optimistic UI)
+                // ==========================================
+                cart.forEach(c => {
+                    // Ищем товар в локальном массиве db
+                    let dbItem = db.find(i => String(i.id) === String(c.id));
+                    if (dbItem) {
+                        let sign = (mode === 'sale') ? -1 : 1; // Продажа: минус, Возврат: плюс
+                        dbItem.stock = (parseFloat(dbItem.stock) || 0) + (c.qty * sign);
+                    }
+                });
+                render(); // Мгновенно перерисовываем каталог с новыми цифрами
+                // ==========================================
+                // КОНЕЦ: Локальное обновление остатков
+                // ==========================================
+
                 cart = []; update(); sm('sale'); 
                 const searchInput = document.getElementById('sb');
                 searchInput.value = ''; searchInput.blur(); filter(); 
