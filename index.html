@@ -338,8 +338,17 @@
     font-family: 'Roboto', sans-serif !important;
 }
     </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+
+    <!-- НОВЫЙ БЛОК: Это экран входа, он виден сразу -->
+    <div id="login-screen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #1e1e1e; color: white;">
+        <h1 style="margin-bottom: 20px;">Вход в POS Noir</h1>
+        <button onclick="loginWithGoogle()" style="padding: 15px 30px; font-size: 16px; background-color: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            Войти через Google
+        </button>
+    </div>
 
     <div id="login-screen">
         <div class="login-label" data-i18n="login_title">ВХОД</div>
@@ -2360,5 +2369,37 @@
             </div>
         </div>
     </div>
+
+<script>
+        let tokenClient;
+
+        // Эта функция срабатывает, когда страница загрузилась
+        window.onload = function() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                // ВАЖНО: Замените эту строку на ваш Client ID из Google Cloud!
+                client_id: '708493033503-uqt150phalgjq131kg51psf8opn27uv0.apps.googleusercontent.com', 
+                
+                // Запрашиваем доступ к таблицам
+                scope: 'https://www.googleapis.com/auth/spreadsheets',
+                
+                // Что делать после успешного входа:
+                callback: (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        console.log("Доступ разрешен!");
+                        // Прячем экран входа
+                        document.getElementById('login-screen').style.display = 'none';
+                        // Показываем вашу кассу
+                        document.getElementById('app-screen').style.display = 'block';
+                    }
+                },
+            });
+        };
+
+        // Эта функция срабатывает при клике на синюю кнопку
+        function loginWithGoogle() {
+            tokenClient.requestAccessToken();
+        }
+    </script>
+
 </body>
 </html>
