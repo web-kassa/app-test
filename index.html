@@ -180,7 +180,7 @@
         .file-content { display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; }
 
         /* --- ЭКРАН ВХОДА И КЛАВИАТУРА --- */
-        #login-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: var(--bg-body); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #login-screen, #pin-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: var(--bg-body); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .login-label { color: var(--accent-green); font-size: 24px; margin-bottom: 25px; font-weight: bold; letter-spacing: 5px; }
         
         .pin-input { background: var(--bg-card); border: 1px solid var(--border-light); color: var(--accent-yellow); padding: 15px; font-size: 32px; width: 220px; text-align: center; margin-bottom: 10px; outline: none; letter-spacing: 12px; border-radius: 8px; }
@@ -343,14 +343,14 @@
 <body>
 
     <!-- НОВЫЙ БЛОК: Это экран входа, он виден сразу -->
-    <div id="login-screen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #1e1e1e; color: white;">
+    <div id="login-screen" style="position: fixed; top: 0; left: 0; width: 100vw; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #1e1e1e; color: white;">
         <h1 style="margin-bottom: 20px;">Вход в POS Noir</h1>
         <button onclick="loginWithGoogle()" style="padding: 15px 30px; font-size: 16px; background-color: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer;">
             Войти через Google
         </button>
     </div>
 
-    <div id="login-screen">
+    <div id="pin-screen">
         <div class="login-label" data-i18n="login_title">ВХОД</div>
         <input type="password" id="pin-field" class="pin-input" placeholder="****" readonly>
         <div id="login-error">НЕВЕРНЫЙ ПИН-КОД</div>
@@ -859,7 +859,7 @@
             try {
                 const response = await fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
-                    body: JSON.stringify({ action: 'verifyPin', pin: val })
+                    body: JSON.stringify({ action: 'verifyPin', pin: parseInt(val, 10) })
                 });
 
                 const textRes = await response.text(); 
@@ -931,7 +931,7 @@
             currentUser = user;
             localStorage.setItem('user_role', user.role);
             localStorage.setItem('user_uid', user.uid); // Запоминаем кто именно вошел
-            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('pin-screen').style.display = 'none';
             const badge = document.getElementById('cashier-info');
             badge.innerText = `👤 ${user.name.toUpperCase()} (${user.uid})`;
             badge.style.display = 'inline-block';
