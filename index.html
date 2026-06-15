@@ -180,7 +180,7 @@
         .file-content { display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; }
 
         /* --- ЭКРАН ВХОДА И КЛАВИАТУРА --- */
-        #login-screen, #pin-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: var(--bg-body); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #pin-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: var(--bg-body); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .login-label { color: var(--accent-green); font-size: 24px; margin-bottom: 25px; font-weight: bold; letter-spacing: 5px; }
         
         .pin-input { background: var(--bg-card); border: 1px solid var(--border-light); color: var(--accent-yellow); padding: 15px; font-size: 32px; width: 220px; text-align: center; margin-bottom: 10px; outline: none; letter-spacing: 12px; border-radius: 8px; }
@@ -343,14 +343,14 @@
 <body>
 
     <!-- НОВЫЙ БЛОК: Это экран входа, он виден сразу -->
-    <div id="login-screen" style="position: fixed; top: 0; left: 0; width: 100vw; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #1e1e1e; color: white;">
+    <div id="google-screen" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #1e1e1e; color: white;">
         <h1 style="margin-bottom: 20px;">Вход в POS Noir</h1>
         <button onclick="loginWithGoogle()" style="padding: 15px 30px; font-size: 16px; background-color: #4285F4; color: white; border: none; border-radius: 5px; cursor: pointer;">
             Войти через Google
         </button>
     </div>
 
-    <div id="pin-screen">
+    <div id="pin-screen" style="display: none;">
         <div class="login-label" data-i18n="login_title">ВХОД</div>
         <input type="password" id="pin-field" class="pin-input" placeholder="****" readonly>
         <div id="login-error">НЕВЕРНЫЙ ПИН-КОД</div>
@@ -947,7 +947,7 @@
             localStorage.removeItem('user_role');
             localStorage.removeItem('user_uid'); // Стираем данные сессии
             document.getElementById('cashier-info').style.display = 'none';
-            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('pin-screen').style.display = 'flex';
             clearPin();
             
             // Визуально обнуляем суммы при выходе, чтобы сменщик их не увидел
@@ -1598,7 +1598,8 @@
             checkBlockTimer(); 
             applyLanguage(currentLang); 
             updateQueueCounter();
-            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('google-screen').style.display = 'flex';
+            document.getElementById('pin-screen').style.display = 'none';
             setTimeout(displayAppVersion, 500); 
             load();
         });
@@ -2385,11 +2386,10 @@
                 // Что делать после успешного входа:
                 callback: (tokenResponse) => {
                     if (tokenResponse && tokenResponse.access_token) {
-                        console.log("Доступ разрешен!");
-                        // Прячем экран входа
-                        document.getElementById('login-screen').style.display = 'none';
-                        // Показываем вашу кассу
-                        document.getElementById('app-screen').style.display = 'block';
+                        // 1. Прячем экран Google
+                        document.getElementById('google-screen').style.display = 'none';
+                        // 2. Показываем Пин-пад
+                        document.getElementById('pin-screen').style.display = 'flex';
                     }
                 },
             });
